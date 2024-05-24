@@ -1,0 +1,13 @@
+# 通用配置
+log:
+  consoleLevel: warn
+  fileLevel: error
+  logFilePath: ""
+# 配置区分
+listenPort: 12306 #server\client
+remotePort: 10086 #client
+localProxyPort: [2321, 2343, 7886] # client
+remoteProxyPort: [2434, 23434, 43244] # client
+proxyProtocol: ["tcp", "udp", "udp"]
+transProtocol: ["quic", "quic", "quic"]
+proxyType: ["reverse", "reverse", "reverse"]
