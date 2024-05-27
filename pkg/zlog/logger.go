@@ -1,11 +1,13 @@
 package zlog
 
 import (
+	"endpoint/core"
+	"endpoint/pkg/config"
 	"fmt"
-	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -21,7 +23,7 @@ var (
 	}
 )
 
-func Init() error {
+func Init(c *core.Log) error {
 	developmentEncoderConfig := zap.NewDevelopmentEncoderConfig()
 	developmentEncoderConfig.StacktraceKey = ""
 	developmentEncoderConfig.EncodeCaller = nil
@@ -29,31 +31,41 @@ func Init() error {
 	consoleEncoder := zapcore.NewConsoleEncoder(developmentEncoderConfig)
 
 	fileEncoderConfig := zap.NewProductionEncoderConfig()
-	fileEncoderConfig.StacktraceKey = ""
+	//fileEncoderConfig.StacktraceKey = ""
 	fileEncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	fileEncoderConfig.EncodeDuration = zapcore.StringDurationEncoder
 	fileEncoderConfig.EncodeCaller = zapcore.ShortCallerEncoder
 	fileEncoder := zapcore.NewConsoleEncoder(fileEncoderConfig)
 
 	path := fmt.Sprintf("error_%s.log", time.Now().Format(time.DateOnly))
-	if logPath := viper.GetString("log.logFilePath"); logPath != "" {
-		path = logPath + path
+	if c != nil && c.LogFilePath != "" {
+		path = filepath.Join([]string{c.LogFilePath, path}...)
 	}
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0777)
 	if err != nil {
 		return err
 	}
 
+	fL := config.DefaultFileLevel
+	cL := config.DefaultConsoleLevel
+
+	if c != nil && strings.TrimSpace(c.FileLevel) != "" {
+		fL = strings.ToLower(strings.TrimSpace(c.FileLevel))
+	}
+	if c != nil && strings.TrimSpace(c.ConsoleLevel) != "" {
+		cL = strings.ToLower(strings.TrimSpace(c.ConsoleLevel))
+	}
+
 	fileCore := zapcore.NewCore(
 		fileEncoder,
 		zapcore.AddSync(file),
-		levels[strings.ToLower(strings.TrimSpace(viper.GetString("log.fileLevel")))],
+		levels[fL],
 	)
 
 	consoleCore := zapcore.NewCore(
 		consoleEncoder,
 		zapcore.AddSync(os.Stdout),
-		levels[strings.ToLower(strings.TrimSpace(viper.GetString("log.consoleLevel")))],
+		levels[cL],
 	)
 
 	logger = zap.New(zapcore.NewTee(consoleCore, fileCore),

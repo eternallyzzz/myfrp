@@ -1,13 +1,27 @@
-# 通用配置
 log:
   consoleLevel: warn
   fileLevel: error
   logFilePath: ""
-# 配置区分
-listenPort: 12306 #server\client
-remotePort: 10086 #client
-localProxyPort: [2321, 2343, 7886] # client
-remoteProxyPort: [2434, 23434, 43244] # client
-proxyProtocol: ["tcp", "udp", "udp"]
-transProtocol: ["quic", "quic", "quic"]
-proxyType: ["reverse", "reverse", "reverse"]
+
+control:
+  # 服务端开启的通信端口，客户端可不配置
+  listen:
+    address: ""
+    port: 12306
+    # 客户端开启下面配置，服务端可不配置
+  conn:
+    address: example.com
+    port: 10086
+
+proxy:
+  type: reverse
+  services:
+    - listen: 127.0.0.1
+      port: 10001
+      protocol: udp
+    - listen: 127.0.0.1
+      port: 10002
+      protocol: tcp
+    - listen: 127.0.0.1
+      port: 10003
+      protocol: udp

@@ -2,9 +2,15 @@ package cmd
 
 import (
 	"endpoint/cmd/configLoader"
+	"endpoint/core"
+	"errors"
 	"github.com/spf13/cobra"
 	"log"
 	"os"
+	"os/signal"
+	"runtime"
+	"runtime/debug"
+	"syscall"
 )
 
 var (
@@ -29,8 +35,28 @@ func Run() {
 }
 
 func startService() error {
-	if err := configLoader.Init(cfgFilePath); err != nil {
+	c, err := configLoader.Init(cfgFilePath)
+	if err != nil {
 		return err
 	}
 
+	instance, err := core.New(c)
+	if err != nil {
+		return errors.New("Failed to start:" + err.Error())
+	}
+
+	if err = instance.Start(); err != nil {
+		return errors.New("Failed to start:" + err.Error())
+	}
+	defer instance.Close()
+
+	runtime.GC()
+	debug.FreeOSMemory()
+
+	{
+		osSignals := make(chan os.Signal, 1)
+		signal.Notify(osSignals, os.Interrupt, syscall.SIGTERM)
+		<-osSignals
+	}
+	return nil
 }

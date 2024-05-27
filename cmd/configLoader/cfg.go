@@ -1,27 +1,42 @@
 package configLoader
 
 import (
+	"endpoint/pkg/config"
+	"endpoint/pkg/model"
 	"endpoint/pkg/zlog"
 	"github.com/spf13/viper"
 	"os"
 )
 
-func Init(path string) error {
-	if err := loadConfig(path); err != nil {
-		return nil
+func Init(path string) (*model.Config, error) {
+	if c, err := loadConfig(path); err != nil {
+		return nil, err
+	} else {
+		return c, zlog.Init(c.Log)
 	}
-	return zlog.Init()
 }
 
-func loadConfig(path string) error {
+func loadConfig(path string) (*model.Config, error) {
 	if path == "" {
-		path, _ = os.Getwd()
+		wd, _ := os.Getwd()
+		path = wd + config.CfgBase
+		if file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0777); err != nil {
+			return nil, err
+		} else {
+			_ = file.Close()
+		}
 	}
 
 	viper.SetConfigFile(path)
 
 	if err := viper.ReadInConfig(); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+
+	var cfg *model.Config
+
+	if err := viper.Unmarshal(cfg); err != nil {
+		return nil, err
+	}
+	return cfg, nil
 }
