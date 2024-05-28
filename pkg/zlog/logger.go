@@ -1,14 +1,13 @@
 package zlog
 
 import (
-	"endpoint/core"
 	"endpoint/pkg/config"
+	"endpoint/pkg/model"
 	"fmt"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 )
 
@@ -23,7 +22,7 @@ var (
 	}
 )
 
-func Init(c *core.Log) error {
+func Init(c *model.Log) error {
 	developmentEncoderConfig := zap.NewDevelopmentEncoderConfig()
 	developmentEncoderConfig.StacktraceKey = ""
 	developmentEncoderConfig.EncodeCaller = nil
@@ -49,11 +48,11 @@ func Init(c *core.Log) error {
 	fL := config.DefaultFileLevel
 	cL := config.DefaultConsoleLevel
 
-	if c != nil && strings.TrimSpace(c.FileLevel) != "" {
-		fL = strings.ToLower(strings.TrimSpace(c.FileLevel))
+	if c != nil && c.FileLevel != "" {
+		fL = c.FileLevel
 	}
-	if c != nil && strings.TrimSpace(c.ConsoleLevel) != "" {
-		cL = strings.ToLower(strings.TrimSpace(c.ConsoleLevel))
+	if c != nil && c.ConsoleLevel != "" {
+		cL = c.ConsoleLevel
 	}
 
 	fileCore := zapcore.NewCore(

@@ -1,6 +1,6 @@
 package inf
 
-type Task interface {
+type Future interface {
 	Run() error
 	Close() error
 }

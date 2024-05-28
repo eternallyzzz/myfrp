@@ -1,6 +1,8 @@
 package configLoader
 
 import (
+	_ "endpoint/core/control"
+	_ "endpoint/core/reverse"
 	"endpoint/pkg/config"
 	"endpoint/pkg/model"
 	"endpoint/pkg/zlog"
@@ -38,5 +40,6 @@ func loadConfig(path string) (*model.Config, error) {
 	if err := viper.Unmarshal(cfg); err != nil {
 		return nil, err
 	}
+
 	return cfg, nil
 }

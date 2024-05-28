@@ -23,7 +23,7 @@ func init() {
 
 var rootCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return startService()
+		return startEndpoint()
 	},
 }
 
@@ -34,7 +34,7 @@ func Run() {
 	}
 }
 
-func startService() error {
+func startEndpoint() error {
 	c, err := configLoader.Init(cfgFilePath)
 	if err != nil {
 		return err

@@ -1,27 +1,51 @@
 package reverse
 
 import (
+	"context"
 	"endpoint/pkg/config"
+	"endpoint/pkg/kit/common"
+	"endpoint/pkg/kit/net"
 	"endpoint/pkg/model"
+	"golang.org/x/net/quic"
 )
 
-type Server struct {
-	Cfg *model.RProxy
+func DoReverseSrv(p *model.Proxy) (*model.RemoteProxy, error) {
+	rProxy := &model.RemoteProxy{Type: p.Type, Transfer: &model.NetAddr{Port: net.GetFreePort()}}
+
+	endpoint, err := common.GetEndpoint(rProxy.Transfer)
+	if err != nil {
+		return nil, err
+	}
+
+	var rServicces []*model.RemoteService
+	for _, service := range p.LocalServices {
+		switch service.Protocol {
+		case config.NetworkUDP:
+			break
+		case config.NetworkTCP:
+
+			break
+		}
+	}
+	go acceptQUICConnections(endpoint)
+
 }
 
-func (s *Server) Run() error {
+func acceptQUICConnections(endpoint *quic.Endpoint) {
 
 }
 
-func (s *Server) Close() error {
+type RpClient struct {
+	Ctx         context.Context
+	Endpoint    *quic.Endpoint
+	Dial        *quic.Conn
+	LocalProxy  *model.Service
+	RemoteProxy *model.Service
+}
+
+func (r *RpClient) Run() error {
 
 }
 
-func (s *Server) Set(cfg any) any {
-	s.Cfg = cfg.(*model.RProxy)
-	return s
-}
-
-func init() {
-	config.ServerContext[config.Reverse] = &Server{}
+func (r *RpClient) Close() error {
 }

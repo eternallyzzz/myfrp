@@ -4,24 +4,8 @@ log:
   logFilePath: ""
 
 control:
-  # 服务端开启的通信端口，客户端可不配置
+  role:
+    - server
   listen:
     address: ""
     port: 12306
-    # 客户端开启下面配置，服务端可不配置
-  conn:
-    address: example.com
-    port: 10086
-
-proxy:
-  type: reverse
-  services:
-    - listen: 127.0.0.1
-      port: 10001
-      protocol: udp
-    - listen: 127.0.0.1
-      port: 10002
-      protocol: tcp
-    - listen: 127.0.0.1
-      port: 10003
-      protocol: udp

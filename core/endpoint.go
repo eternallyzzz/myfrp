@@ -2,127 +2,92 @@ package core
 
 import (
 	"context"
-	"encoding/json"
 	"endpoint/pkg/config"
 	"endpoint/pkg/inf"
-	"endpoint/pkg/kit/net"
-	"endpoint/pkg/kit/tls"
+	"endpoint/pkg/kit/common"
 	"endpoint/pkg/model"
 	"endpoint/pkg/zlog"
 	"errors"
-	"fmt"
-	"golang.org/x/net/quic"
-	"reflect"
-	"strings"
 	"sync"
-	"time"
 )
 
-func New(c *model.Config) (*Instance, error) {
-	instance := &Instance{Ctx: context.Background(), LocalProxy: c.Proxy}
+func New(iConfig *model.Config) (*Instance, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	instance := &Instance{Ctx: ctx, Cancel: cancel}
 
-	endpoint, err := endPoint(c.Control.Listen)
+	err := initInstance(instance, iConfig)
 	if err != nil {
 		return nil, err
 	}
-	instance.EndPoint = endpoint
-
-	rProxy, err := initProxyInfo(c)
-	if err != nil {
-		return nil, err
-	}
-
-	createServer(c.Proxy, rProxy)
-
-	instance.RemoteProxy = rProxy
 
 	return instance, nil
 }
 
-func endPoint(addr *model.NetAddr) (*quic.Endpoint, error) {
-	if addr == nil {
-		return nil, nil
+func initInstance(ins *Instance, iConfig *model.Config) error {
+	for _, role := range iConfig.Control.Role {
+		switch role {
+		case config.RoleSrv:
+			o, err := common.GetServerInstance(ins.Ctx, iConfig.Control.Listen)
+			if err != nil {
+				return err
+			}
+			if future, ok := o.(inf.Future); ok {
+				if err := ins.AddTask(future); err != nil {
+					return err
+				}
+			}
+			break
+		case config.RoleCli:
+			o, err := common.GetServerInstance(ins.Ctx, iConfig.Control.Conn)
+			if err != nil {
+				return err
+			}
+			if futures, ok := o.([]inf.Future); ok {
+				if err := ins.AddTasks(futures); err != nil {
+					return err
+				}
+			}
+			break
+		}
 	}
-	endpoint, err := quic.Listen(config.NetworkQUIC, fmt.Sprintf("%s:%d", addr.Address, addr.Port), &quic.Config{
-		TLSConfig:            tls.GetTLSConfig(config.ServerTLS, ""),
-		MaxIdleTimeout:       config.MaxIdle,
-		KeepAlivePeriod:      config.KeepAlive,
-		MaxBidiRemoteStreams: config.MaxStreams,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return endpoint, nil
-}
-
-func initProxyInfo(c *model.Config) ([]*model.RemoteProxy, error) {
-	if c.Control.Conn == nil {
-		return nil, nil
-	}
-
-	buff := make([]byte, 1500)
-
-	endpoint, err := endPoint(&model.NetAddr{Address: "", Port: net.GetFreePort()})
-	if err != nil {
-		return nil, err
-	}
-	defer endpoint.Close(context.Background())
-
-	dial, err := endpoint.Dial(context.Background(), config.NetworkQUIC, fmt.Sprintf("%s:%d", c.Control.Conn.Address, c.Control.Conn.Port), &quic.Config{
-		TLSConfig:       tls.GetTLSConfig(config.ClientTLS, c.Control.Conn.Address),
-		MaxIdleTimeout:  config.MaxIdle,
-		KeepAlivePeriod: config.KeepAlive,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	m, err := json.Marshal(c.Proxy)
-	if err != nil {
-		return nil, err
-	}
-
-	stream, err := dial.NewStream(context.Background())
-	if err != nil {
-		return nil, err
-	}
-	defer stream.Close()
-
-	_, err = stream.Write(m)
-	if err != nil {
-		return nil, err
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-
-	stream.SetReadContext(ctx)
-
-	n, err := stream.Read(buff)
-	if err != nil {
-		return nil, err
-	}
-
-	var rProxy []*model.RemoteProxy
-	err = json.Unmarshal(buff[:n], &rProxy)
-	if err != nil {
-		return nil, err
-	}
-	return rProxy, nil
+	return nil
 }
 
 type Instance struct {
-	Lock        sync.Mutex
-	Ctx         context.Context
-	EndPoint    *quic.Endpoint
-	Futures     []inf.Task
-	RemoteProxy []*model.RemoteProxy
-	LocalProxy  *model.LocalProxy
+	Lock    sync.Mutex
+	Ctx     context.Context
+	Cancel  context.CancelFunc
+	Futures []inf.Future
+	Running bool
+}
+
+func (i *Instance) AddTask(o inf.Future) error {
+	i.Futures = append(i.Futures, o)
+	if i.Running {
+		if err := o.Run(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (i *Instance) AddTasks(o []inf.Future) error {
+	i.Futures = append(i.Futures, o...)
+	if i.Running {
+		for _, future := range o {
+			if err := future.Run(); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (i *Instance) Start() error {
 	i.Lock.Lock()
 	defer i.Lock.Unlock()
+
+	i.Running = true
 
 	for _, task := range i.Futures {
 		if err := task.Run(); err != nil {
@@ -139,6 +104,8 @@ func (i *Instance) Close() error {
 	i.Lock.Lock()
 	defer i.Lock.Unlock()
 
+	i.Running = false
+
 	var errMsg string
 	for _, task := range i.Futures {
 		if err := task.Close(); err != nil {
@@ -146,15 +113,11 @@ func (i *Instance) Close() error {
 		}
 	}
 
+	i.Cancel()
+
 	if errMsg != "" {
 		return errors.New(errMsg)
 	}
 
 	return nil
-}
-
-func createServer(lp *model.LocalProxy, rp []*model.RemoteProxy) {
-
-	value := reflect.ValueOf(strings.ToLower(strings.TrimSpace(lp.Type)))
-	value.MethodByName("Create")
 }

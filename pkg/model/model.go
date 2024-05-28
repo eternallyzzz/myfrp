@@ -1,9 +1,10 @@
 package model
 
+import "fmt"
+
 type Config struct {
-	Log     *Log        `json:"log"`
-	Control *Control    `json:"control"`
-	Proxy   *LocalProxy `json:"proxy"`
+	Log     *Log     `json:"log"`
+	Control *Control `json:"control"`
 }
 
 type Log struct {
@@ -13,13 +14,29 @@ type Log struct {
 }
 
 type Control struct {
-	Listen *NetAddr `json:"listen"`
-	Conn   *NetAddr `json:"conn"`
+	Role   []string       `json:"role"`
+	Listen *ListenControl `json:"listen"`
+	Conn   *ConnControl   `json:"conn"`
 }
 
-type LocalProxy struct {
-	Type     string     `json:"type"`
-	Services []*Service `json:"services"`
+type ListenControl struct {
+	*NetAddr
+}
+
+type ConnControl struct {
+	*NetAddr
+	Proxy *Proxy `json:"proxy"`
+}
+
+type Proxy struct {
+	Type          string     `json:"type"`
+	LocalServices []*Service `json:"LocalServices"`
+}
+
+func (l *Proxy) GenTag() {
+	for _, service := range l.LocalServices {
+		service.Tag = fmt.Sprintf("%s-[%s]%s:%d", l.Type, service.Protocol, service.Listen, service.Port)
+	}
 }
 
 type NetAddr struct {
@@ -27,21 +44,30 @@ type NetAddr struct {
 	Port    int    `json:"port"`
 }
 
+func (n *NetAddr) String() string {
+	return fmt.Sprintf("%s:%d", n.Address, n.Port)
+}
+
 type Service struct {
+	Tag      string `json:"tag"`
 	Listen   string `json:"listen"`
 	Port     int    `json:"port"`
 	Protocol string `json:"protocol"`
 }
 
 type RemoteProxy struct {
-	Tag            string   `json:"tag"`
-	RemoteService  *Service `json:"remoteService"`
-	RemoteTransfer *NetAddr `json:"remoteTransfer"`
+	Type           string           `json:"type"`
+	RemoteServices []*RemoteService `json:"remoteServices"`
+	Transfer       *NetAddr         `json:"transfer"`
 }
 
-type RProxy struct {
-	Local         *NetAddr
-	Remote        *NetAddr
-	Transfer      *NetAddr
-	ProxyProtocol string
+type RemoteService struct {
+	Tag    string   `json:"tag"`
+	Listen *Service `json:"listen"`
+}
+
+type ProxyConfig struct {
+	Local    *Service
+	Remote   *RemoteService
+	Transfer *NetAddr `json:"transfer"`
 }
