@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"endpoint/core/reverse"
+	"endpoint/pkg/common"
 	"endpoint/pkg/config"
-	"endpoint/pkg/kit/common"
 	"endpoint/pkg/kit/net"
 	"endpoint/pkg/model"
 	"endpoint/pkg/zlog"
@@ -87,7 +87,7 @@ func handleConn(ctx context.Context, conn *quic.Conn) {
 
 	switch proxy.Type {
 	case config.Reverse:
-		rProxy, err = reverse.DoReverseSrv(&proxy)
+		rProxy, err = reverse.DoReverseSrv(ctx, &proxy)
 		break
 	case config.Forward:
 		// TODO
@@ -143,87 +143,9 @@ func ConnCreator(ctx context.Context, v any) (any, error) {
 	}
 	defer dial.Close()
 
-	rpClients, err := handshake(ctx, dial, connConfig.Proxy)
+	rpClient, err := reverse.DoReverseCli(ctx, dial, connConfig.Proxy)
 
-	return rpClients, err
-}
-
-func handshake(ctx context.Context, dial *quic.Conn, p *model.Proxy) ([]*reverse.RpClient, error) {
-	stream, err := dial.NewStream(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	m, err := json.Marshal(p)
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = stream.Write(m)
-	if err != nil {
-		return nil, err
-	}
-
-	buff := make([]byte, 1500)
-	var rProxy model.RemoteProxy
-
-	timeout, cancel := context.WithTimeout(ctx, time.Second*5)
-	defer cancel()
-	stream.SetReadContext(timeout)
-
-	n, err := stream.Read(buff)
-	if err != nil {
-		return nil, err
-	}
-
-	err = json.Unmarshal(buff[:n], &rProxy)
-	if err != nil {
-		return nil, err
-	}
-
-	var pcs []*model.ProxyConfig
-
-	if rProxy.Type == p.Type {
-		serviceMap := make(map[string]*model.Service)
-		for _, service := range p.LocalServices {
-			serviceMap[service.Tag] = service
-		}
-
-		for _, rService := range rProxy.RemoteServices {
-			if localService, found := serviceMap[rService.Tag]; found {
-				pcs = append(pcs, &model.ProxyConfig{
-					Local: localService,
-					Remote: &model.RemoteService{
-						Tag:    rService.Tag,
-						Listen: rService.Listen,
-					},
-					Transfer: rProxy.Transfer,
-				})
-			}
-		}
-	}
-
-	var rpClis []*reverse.RpClient
-	for _, pc := range pcs {
-		endpoint, err := common.GetEndpoint(&model.NetAddr{Port: net.GetFreePort()})
-		if err != nil {
-			return nil, err
-		}
-
-		pointDial, err := common.GetEndPointDial(ctx, endpoint, pc.Transfer)
-		if err != nil {
-			return nil, err
-		}
-
-		rpClis = append(rpClis, &reverse.RpClient{
-			Ctx:         ctx,
-			Endpoint:    endpoint,
-			Dial:        pointDial,
-			LocalProxy:  pc.Local,
-			RemoteProxy: pc.Remote.Listen,
-		})
-	}
-	return rpClis, nil
+	return rpClient, err
 }
 
 func init() {

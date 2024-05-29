@@ -2,9 +2,9 @@ package core
 
 import (
 	"context"
+	"endpoint/pkg/common"
 	"endpoint/pkg/config"
 	"endpoint/pkg/inf"
-	"endpoint/pkg/kit/common"
 	"endpoint/pkg/model"
 	"endpoint/pkg/zlog"
 	"errors"
@@ -42,8 +42,8 @@ func initInstance(ins *Instance, iConfig *model.Config) error {
 			if err != nil {
 				return err
 			}
-			if futures, ok := o.([]inf.Future); ok {
-				if err := ins.AddTasks(futures); err != nil {
+			if future, ok := o.(inf.Future); ok {
+				if err := ins.AddTask(future); err != nil {
 					return err
 				}
 			}
@@ -105,6 +105,7 @@ func (i *Instance) Close() error {
 	defer i.Lock.Unlock()
 
 	i.Running = false
+	i.Cancel()
 
 	var errMsg string
 	for _, task := range i.Futures {
@@ -112,8 +113,6 @@ func (i *Instance) Close() error {
 			errMsg += " " + err.Error()
 		}
 	}
-
-	i.Cancel()
 
 	if errMsg != "" {
 		return errors.New(errMsg)

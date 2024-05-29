@@ -63,3 +63,32 @@ func CheckPortAvailability(port int) (flag bool) {
 
 	return flag
 }
+
+func GetTcpListener() (net.Listener, int, error) {
+	port := GetFreePort()
+	l, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		return nil, 0, err
+	}
+
+	zlog.Info(fmt.Sprintf("Listen in [%s]%s", l.Addr().Network(), l.Addr().String()))
+
+	return l, port, nil
+}
+
+func GetUdpListener() (*net.UDPConn, int, error) {
+	port := GetFreePort()
+	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		return nil, 0, err
+	}
+
+	l, err := net.ListenUDP("udp", addr)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	zlog.Info(fmt.Sprintf("Listen in [%s]%s", l.LocalAddr().Network(), l.LocalAddr().String()))
+
+	return l, port, nil
+}

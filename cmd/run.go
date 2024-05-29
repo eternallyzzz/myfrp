@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"context"
 	"endpoint/cmd/configLoader"
 	"endpoint/core"
+	"endpoint/pkg/config"
 	"errors"
 	"github.com/spf13/cobra"
 	"log"
@@ -49,6 +51,8 @@ func startEndpoint() error {
 		return errors.New("Failed to start:" + err.Error())
 	}
 	defer instance.Close()
+
+	config.Ctx = context.WithValue(context.Background(), "instance", instance)
 
 	runtime.GC()
 	debug.FreeOSMemory()

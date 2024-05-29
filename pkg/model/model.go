@@ -1,6 +1,9 @@
 package model
 
-import "fmt"
+import (
+	"endpoint/pkg/kit/id"
+	"fmt"
+)
 
 type Config struct {
 	Log     *Log     `json:"log"`
@@ -35,7 +38,7 @@ type Proxy struct {
 
 func (l *Proxy) GenTag() {
 	for _, service := range l.LocalServices {
-		service.Tag = fmt.Sprintf("%s-[%s]%s:%d", l.Type, service.Protocol, service.Listen, service.Port)
+		service.Tag = id.GetSnowflakeID().String()
 	}
 }
 
@@ -70,4 +73,9 @@ type ProxyConfig struct {
 	Local    *Service
 	Remote   *RemoteService
 	Transfer *NetAddr `json:"transfer"`
+}
+
+type Handshake struct {
+	Tag     string
+	Network string
 }

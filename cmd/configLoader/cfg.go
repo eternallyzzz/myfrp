@@ -8,6 +8,7 @@ import (
 	"endpoint/pkg/zlog"
 	"github.com/spf13/viper"
 	"os"
+	"strings"
 )
 
 func Init(path string) (*model.Config, error) {
@@ -39,6 +40,10 @@ func loadConfig(path string) (*model.Config, error) {
 
 	if err := viper.Unmarshal(cfg); err != nil {
 		return nil, err
+	}
+
+	for _, service := range cfg.Control.Conn.Proxy.LocalServices {
+		service.Protocol = strings.ToLower(service.Protocol)
 	}
 
 	return cfg, nil
