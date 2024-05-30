@@ -2,9 +2,10 @@ package ctcp
 
 import (
 	"context"
-	"encoding/json"
 	"endpoint/pkg/common"
 	"endpoint/pkg/model"
+	"endpoint/pkg/zlog"
+	"errors"
 	"golang.org/x/net/quic"
 	"net"
 )
@@ -13,56 +14,63 @@ type Server struct {
 	Ctx         context.Context
 	Cancel      context.CancelFunc
 	Endpoint    *quic.Endpoint
+	Conn        *quic.Conn
 	LocalProxy  *model.Service
 	RemoteProxy *model.Service
 	Transfer    *model.NetAddr
-	LocalDial   net.Listener
+	Running     bool
 }
 
 func (s *Server) Run() error {
+	dial, err := common.PreMsg(s.Ctx, s.Endpoint, s.Transfer, s.RemoteProxy.Tag, s.RemoteProxy.Protocol)
+	if err != nil {
+		return err
+	}
+	s.Conn = dial
 
+	go s.listenQUIC()
+
+	return nil
 }
 
 func (s *Server) Close() error {
+	if !s.Running {
+		return nil
+	}
 
+	errs := make([]error, 2)
+
+	errs[0] = s.Conn.Close()
+	errs[1] = s.Endpoint.Close(s.Ctx)
+	s.Cancel()
+
+	s.Running = !s.Running
+
+	return errors.Join(errs...)
 }
 
-func s() {
-	withCancel, cancelFun := context.WithCancel(ctx)
-
-	pointDial, err := common.GetEndPointDial(withCancel, endpoint, pc.Transfer)
-	if err != nil {
-		cancelFun()
-		return nil, err
-	}
-
-	newStream, err := pointDial.NewStream(withCancel)
-	if err != nil {
-		cancelFun()
-		return nil, err
-	}
-
-	h := model.Handshake{
-		Tag:     pc.Remote.Tag,
-		Network: pc.Remote.Listen.Protocol,
-	}
-	m1, err := json.Marshal(&h)
-	if err != nil {
-		cancelFun()
-		return nil, err
-	}
-
-	_, err = newStream.Write(m1)
-	if err != nil {
-		cancelFun()
-		return nil, err
-	}
-
-	b := make([]byte, 10)
-	for {
-		_, err := newStream.Read(b)
+func (s *Server) listenQUIC() {
+	defer func(s *Server) {
+		err := s.Close()
 		if err != nil {
-			break
+			zlog.Error(err.Error())
+		}
+	}(s)
+
+	for {
+		stream, err := s.Conn.AcceptStream(s.Ctx)
+		if err != nil {
+			return
+		}
+		if stream.IsReadOnly() {
+			go common.HandleSrvEvent(stream)
+		} else {
+			dial, err := net.Dial(s.LocalProxy.Protocol, s.LocalProxy.String())
+			if err != nil {
+				return
+			}
+
+			go common.Copy(dial, stream, nil, "")
 		}
 	}
 }

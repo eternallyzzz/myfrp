@@ -58,6 +58,10 @@ type Service struct {
 	Protocol string `json:"protocol"`
 }
 
+func (s *Service) String() string {
+	return fmt.Sprintf("%s:%d", s.Listen, s.Port)
+}
+
 type RemoteProxy struct {
 	Type           string           `json:"type"`
 	RemoteServices []*RemoteService `json:"remoteServices"`

@@ -97,17 +97,16 @@ func handleConn(ctx context.Context, conn *quic.Conn) {
 	if err != nil {
 		zlog.Error(err.Error())
 		_, _ = stream.Write([]byte(config.BadService))
-		stream.Flush()
 	} else {
 		m, er := json.Marshal(rProxy)
 		if er != nil {
 			zlog.Error(err.Error())
 			_, _ = stream.Write([]byte(config.BadService))
-			stream.Flush()
 		} else {
 			_, _ = stream.Write(m)
 		}
 	}
+	stream.Flush()
 
 	time.Sleep(time.Second * 5)
 }
@@ -117,6 +116,7 @@ func ListenCreator(ctx context.Context, v any) (any, error) {
 	if !ok {
 		return nil, errors.New("invalid config type")
 	}
+
 	endpoint, err := common.GetEndpoint(listenConfig.NetAddr)
 	if err != nil {
 		return nil, err
