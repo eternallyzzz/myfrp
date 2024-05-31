@@ -6,8 +6,10 @@ import (
 	"endpoint/pkg/model"
 	"endpoint/pkg/zlog"
 	"errors"
+	"fmt"
 	"golang.org/x/net/quic"
 	"net"
+	"time"
 )
 
 type Server struct {
@@ -22,6 +24,8 @@ type Server struct {
 }
 
 func (s *Server) Run() error {
+	zlog.Info(fmt.Sprintf("Remote Connection Addr: [%s]%s", s.RemoteProxy.Protocol, s.RemoteProxy.String()))
+
 	dial, err := common.PreMsg(s.Ctx, s.Endpoint, s.Transfer, s.RemoteProxy.Tag, s.RemoteProxy.Protocol)
 	if err != nil {
 		return err
@@ -67,7 +71,10 @@ func (s *Server) listenQUIC() {
 		} else {
 			dial, err := net.Dial(s.LocalProxy.Protocol, s.LocalProxy.String())
 			if err != nil {
-				return
+				_ = stream.Close()
+				zlog.Error(err.Error())
+				time.Sleep(time.Second)
+				continue
 			}
 
 			go common.Copy(dial, stream, nil, "")

@@ -1,6 +1,7 @@
 package configLoader
 
 import (
+	"encoding/json"
 	_ "endpoint/core/control"
 	_ "endpoint/core/reverse"
 	"endpoint/pkg/config"
@@ -36,15 +37,22 @@ func loadConfig(path string) (*model.Config, error) {
 		return nil, err
 	}
 
-	var cfg *model.Config
+	var cfg model.Config
 
-	if err := viper.Unmarshal(cfg); err != nil {
+	m, err := json.Marshal(viper.AllSettings())
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(m, &cfg)
+	if err != nil {
 		return nil, err
 	}
 
-	for _, service := range cfg.Control.Conn.Proxy.LocalServices {
-		service.Protocol = strings.ToLower(service.Protocol)
+	if &cfg != nil && cfg.Control != nil && cfg.Control.Conn != nil && cfg.Control.Conn.Proxy != nil && cfg.Control.Conn.Proxy.LocalServices != nil {
+		for _, service := range cfg.Control.Conn.Proxy.LocalServices {
+			service.Protocol = strings.ToLower(service.Protocol)
+		}
 	}
 
-	return cfg, nil
+	return &cfg, nil
 }

@@ -52,6 +52,7 @@ func HandleEvent(stream *quic.Stream, eventCh chan string) {
 			if err != nil {
 				return
 			}
+			stream.Flush()
 		}
 	}
 }
@@ -92,7 +93,6 @@ func PreMsg(ctx context.Context, endpoint *quic.Endpoint, addr *model.NetAddr, t
 	if err != nil {
 		return nil, err
 	}
-	defer pointDial.Close()
 
 	newStream, err := pointDial.NewStream(ctx)
 	if err != nil {
@@ -116,10 +116,6 @@ func PreMsg(ctx context.Context, endpoint *quic.Endpoint, addr *model.NetAddr, t
 	newStream.Flush()
 
 	time.Sleep(time.Second * 3)
-	dial, err := GetEndPointDial(ctx, endpoint, addr)
-	if err != nil {
-		return nil, err
-	}
 
-	return dial, err
+	return pointDial, err
 }

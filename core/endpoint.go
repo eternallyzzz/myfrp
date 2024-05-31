@@ -31,6 +31,7 @@ func initInstance(ins *Instance, iConfig *model.Config) error {
 			if err != nil {
 				return err
 			}
+
 			if future, ok := o.(inf.Future); ok {
 				if err := ins.AddTask(future); err != nil {
 					return err

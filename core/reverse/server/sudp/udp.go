@@ -35,7 +35,7 @@ func (s *Server) Run() error {
 
 	go common.HandleEvent(sendStream, s.EventCh)
 	go s.listenUDP()
-	go s.checkActive()
+	go s.checkInactiveStreams()
 
 	s.Running = true
 	return nil
@@ -82,6 +82,7 @@ func (s *Server) listenUDP() {
 			case v.ReadCh <- data:
 			default:
 			}
+			s.Lock.Unlock()
 			continue
 		}
 		s.Lock.Unlock()
@@ -143,6 +144,7 @@ func (w *WorkConnState) Write() {
 			if err != nil {
 				return
 			}
+			w.Stream.Flush()
 		}
 	}
 }
@@ -184,7 +186,7 @@ func (w *WorkConnState) Close() {
 	w.Wait.Wait()
 }
 
-func (s *Server) checkActive() {
+func (s *Server) checkInactiveStreams() {
 	ticker := time.NewTicker(time.Millisecond * 150)
 
 	for {

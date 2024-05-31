@@ -6,10 +6,12 @@ import (
 	"endpoint/core/reverse"
 	"endpoint/pkg/common"
 	"endpoint/pkg/config"
+	"endpoint/pkg/kit/id"
 	"endpoint/pkg/kit/net"
 	"endpoint/pkg/model"
 	"endpoint/pkg/zlog"
 	"errors"
+	"fmt"
 	"go.uber.org/zap"
 	"golang.org/x/net/quic"
 	"reflect"
@@ -22,6 +24,7 @@ type Listen struct {
 }
 
 func (l *Listen) Run() error {
+	zlog.Info(fmt.Sprintf("Control Listen in [udp]%s", l.Endpoint.LocalAddr().String()))
 	go func() {
 		for {
 			conn, err := l.Endpoint.Accept(l.Ctx)
@@ -55,12 +58,7 @@ func handleConn(ctx context.Context, conn *quic.Conn) {
 
 	stream, err := conn.AcceptStream(ctx)
 	if err != nil {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			zlog.Error("failed accept stream", zap.Error(err))
-		}
+		return
 	}
 	defer stream.Close()
 
@@ -122,7 +120,7 @@ func ListenCreator(ctx context.Context, v any) (any, error) {
 		return nil, err
 	}
 
-	return &Listen{ctx, endpoint}, nil
+	return &Listen{Ctx: ctx, Endpoint: endpoint}, nil
 }
 
 func ConnCreator(ctx context.Context, v any) (any, error) {
@@ -131,26 +129,34 @@ func ConnCreator(ctx context.Context, v any) (any, error) {
 		return nil, errors.New("invalid config type")
 	}
 
-	endpoint, err := common.GetEndpoint(connConfig.NetAddr)
+	endpoint, err := common.GetEndpoint(&model.NetAddr{Port: net.GetFreePort()})
 	if err != nil {
 		return nil, nil
 	}
 	defer endpoint.Close(ctx)
 
-	dial, err := common.GetEndPointDial(ctx, endpoint, &model.NetAddr{Port: net.GetFreePort()})
+	dial, err := common.GetEndPointDial(ctx, endpoint, connConfig.NetAddr)
 	if err != nil {
 		return nil, nil
 	}
 	defer dial.Close()
+
+	genTag(connConfig.Proxy)
 
 	rpClient, err := reverse.DoReverseCli(ctx, dial, connConfig.Proxy)
 
 	return rpClient, err
 }
 
+func genTag(l *model.Proxy) {
+	for _, service := range l.LocalServices {
+		service.Tag = id.GetSnowflakeID().String()
+	}
+}
+
 func init() {
 	lc := reflect.TypeOf(&model.ListenControl{})
 	common.ServerContext[lc] = ListenCreator
-	cc := reflect.TypeOf(&model.Proxy{})
+	cc := reflect.TypeOf(&model.ConnControl{})
 	common.ServerContext[cc] = ConnCreator
 }

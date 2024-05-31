@@ -11,7 +11,7 @@ const (
 	KeepAlive           = time.Second * 30
 	ServerTLS           = 0
 	ClientTLS           = 1
-	CfgBase             = "/config.yaml"
+	CfgBase             = "/config-c.yaml"
 	DefaultConsoleLevel = "warn"
 	DefaultFileLevel    = "error"
 	RoleSrv             = "server"

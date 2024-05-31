@@ -3,6 +3,7 @@ package cudp
 import (
 	"context"
 	"endpoint/pkg/common"
+	"endpoint/pkg/config"
 	"endpoint/pkg/kit/encode"
 	"endpoint/pkg/kit/id"
 	"endpoint/pkg/model"
@@ -24,10 +25,12 @@ type Server struct {
 	RemoteProxy *model.Service
 	Transfer    *model.NetAddr
 	Running     bool
-	Users       *sync.Map
+	UDPConnMaps *sync.Map
 }
 
 func (s *Server) Run() error {
+	zlog.Info(fmt.Sprintf("Remote Connection Addr: [%s]%s", s.RemoteProxy.Protocol, s.RemoteProxy.String()))
+
 	dial, err := common.PreMsg(s.Ctx, s.Endpoint, s.Transfer, s.RemoteProxy.Tag, s.RemoteProxy.Protocol)
 	if err != nil {
 		return err
@@ -35,6 +38,7 @@ func (s *Server) Run() error {
 	s.Conn = dial
 
 	go s.listenQUIC()
+	go s.checkInactiveStreams()
 
 	return nil
 }
@@ -74,29 +78,38 @@ func (s *Server) listenQUIC() {
 		} else {
 			var wg sync.WaitGroup
 
-			conn, err := udpConnect(s.LocalProxy.Port)
+			conn, err := udpConnect(s.LocalProxy.String())
 			if err != nil {
 				_ = stream.Close()
 				zlog.Error(err.Error())
+				time.Sleep(time.Second)
 				continue
 			}
 
-			wg.Add(4)
-			u := newUserInfo(stream, conn, &wg)
-			s.Users.Store(u.ID, u)
+			udpConnState := &WorkConnState{
+				ID:      id.GetSnowflakeID().String(),
+				Ts:      time.Now(),
+				Stream:  stream,
+				UDPConn: conn,
+				Wait:    &wg,
+				ReadCh:  make(chan []byte, 2048),
+				WriteCh: make(chan []byte, 2048),
+			}
 
-			go u.fromLocalServer()
-			go u.fromRemoteServer()
-			go u.toLocal()
-			go u.toRemote()
-			go checkInactiveStreams(s)
+			wg.Add(4)
+			s.UDPConnMaps.Store(udpConnState.ID, udpConnState)
+
+			go udpConnState.Read()
+			go udpConnState.Write()
+			go udpConnState.InUDP()
+			go udpConnState.OutUDP()
 		}
 	}
 }
 
 type WorkConnState struct {
+	ID      string
 	Ts      time.Time
-	Addr    *net.UDPAddr
 	Stream  *quic.Stream
 	UDPConn *net.UDPConn
 	ReadCh  chan []byte
@@ -104,137 +117,113 @@ type WorkConnState struct {
 	Wait    *sync.WaitGroup
 }
 
-type UserInfo struct {
-	ID      string
-	Stream  *quic.Stream
-	WriteCh chan []byte
-	ReadCh  chan []byte
-	UdpConn *net.UDPConn
-	Wg      *sync.WaitGroup
-	Ts      int64
-}
+func (w *WorkConnState) Read() {
+	defer w.Wait.Done()
+	defer w.UDPConn.Close()
 
-func (u *UserInfo) fromLocalServer() {
-	defer func() {
-		close(u.WriteCh)
-		u.Wg.Done()
-	}()
-	buff := make([]byte, 1500)
 	for {
-		n, err := u.UdpConn.Read(buff)
+		decode, err := encode.Decode(w.Stream)
 		if err != nil {
 			return
 		}
+
+		w.ReadCh <- decode
+	}
+}
+
+func (w *WorkConnState) Write() {
+	defer w.Wait.Done()
+	defer close(w.ReadCh)
+
+	for {
+		select {
+		case v, ok := <-w.WriteCh:
+			if !ok {
+				return
+			}
+
+			_, err := w.Stream.Write(encode.Encode(v))
+			if err != nil {
+				return
+			}
+			w.Stream.Flush()
+		}
+	}
+}
+
+func (w *WorkConnState) InUDP() {
+	defer w.Wait.Done()
+	defer close(w.WriteCh)
+
+	buff := make([]byte, 1500)
+	for {
+		n, _, err := w.UDPConn.ReadFromUDP(buff)
+		if err != nil {
+			return
+		}
+
 		data := make([]byte, n)
 		copy(data, buff[:n])
+
 		select {
-		case u.WriteCh <- data:
+		case w.WriteCh <- data:
 		default:
 		}
 	}
 }
 
-func (u *UserInfo) fromRemoteServer() {
-	defer func() {
-		close(u.ReadCh)
-		u.Wg.Done()
-	}()
-	for {
-		data, er := encode.Decode(u.Stream)
-		if er != nil {
-			return
-		}
-
-		u.Ts = time.Now().Unix()
-		u.ReadCh <- data
-	}
-}
-
-func (u *UserInfo) toRemote() {
-	defer func() {
-		_ = u.Stream.Close()
-		u.Wg.Done()
-	}()
+func (w *WorkConnState) OutUDP() {
+	defer w.Wait.Done()
 
 	for {
 		select {
-		case v, ok := <-u.WriteCh:
+		case v, ok := <-w.ReadCh:
 			if !ok {
 				return
 			}
-			v = encode.Encode(v)
-			_, err := u.Stream.Write(v)
+			_, err := w.UDPConn.Write(v)
 			if err != nil {
-				return
-			}
-			u.Ts = time.Now().Unix()
-		}
-	}
-}
-
-func (u *UserInfo) toLocal() {
-	defer func() {
-		_ = u.UdpConn.Close()
-		u.Wg.Done()
-	}()
-	for {
-		select {
-		case v, ok := <-u.ReadCh:
-			if !ok {
-				return
-			}
-			_, err := u.UdpConn.Write(v)
-			if err != nil {
-				zlog.Error(err.Error())
 				return
 			}
 		}
 	}
 }
 
-func newUserInfo(stream *quic.Stream, conn *net.UDPConn, wg *sync.WaitGroup) (u *UserInfo) {
-	u = &UserInfo{
-		ID:      id.GetSnowflakeID().String(),
-		Stream:  stream,
-		WriteCh: make(chan []byte, 2048),
-		ReadCh:  make(chan []byte, 2048),
-		UdpConn: conn,
-		Wg:      wg,
-		Ts:      time.Now().Unix(),
-	}
-	return
+func (w *WorkConnState) Close() {
+	_ = w.Stream.Close()
+	w.Wait.Wait()
 }
 
-func udpConnect(proxyPort int) (conn *net.UDPConn, err error) {
-	udpAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("127.0.0.1:%d", proxyPort))
+func udpConnect(addr string) (conn *net.UDPConn, err error) {
+	udpAddr, err := net.ResolveUDPAddr("udp", addr)
 	conn, err = net.DialUDP("udp", nil, udpAddr)
 	return
 }
 
-func checkInactiveStreams(s *Server) {
+func (s *Server) checkInactiveStreams() {
 	ticker := time.NewTicker(time.Millisecond * 150)
 	for {
 		select {
 		case <-s.Ctx.Done():
-			closeInactiveStreams(s.Users, false)
+			closeInactiveStreams(s.UDPConnMaps, false)
 			return
 		case <-ticker.C:
-			closeInactiveStreams(s.Users, true)
+			closeInactiveStreams(s.UDPConnMaps, true)
 		}
 	}
 }
 
 func closeInactiveStreams(users *sync.Map, checkActive bool) {
-	f := func(value *UserInfo, key any) {
+	f := func(value *WorkConnState, key any) {
 		value.Stream.CloseRead()
 		_ = value.Stream.Close()
 		users.Delete(key)
 	}
 
 	users.Range(func(key, value any) bool {
-		info := value.(*UserInfo)
+		info := value.(*WorkConnState)
 		if checkActive {
-			if time.Now().Unix()-info.Ts > 5 {
+			if time.Now().Sub(info.Ts).Seconds() > config.UDPConnTimeOut {
 				f(info, key)
 			}
 		} else {

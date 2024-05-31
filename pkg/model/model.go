@@ -1,7 +1,6 @@
 package model
 
 import (
-	"endpoint/pkg/kit/id"
 	"fmt"
 )
 
@@ -33,13 +32,7 @@ type ConnControl struct {
 
 type Proxy struct {
 	Type          string     `json:"type"`
-	LocalServices []*Service `json:"LocalServices"`
-}
-
-func (l *Proxy) GenTag() {
-	for _, service := range l.LocalServices {
-		service.Tag = id.GetSnowflakeID().String()
-	}
+	LocalServices []*Service `json:"localServices"`
 }
 
 type NetAddr struct {

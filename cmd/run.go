@@ -10,8 +10,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"runtime"
-	"runtime/debug"
 	"syscall"
 )
 
@@ -46,16 +44,12 @@ func startEndpoint() error {
 	if err != nil {
 		return errors.New("Failed to start:" + err.Error())
 	}
+	config.Ctx = context.WithValue(context.Background(), "instance", instance)
 
 	if err = instance.Start(); err != nil {
 		return errors.New("Failed to start:" + err.Error())
 	}
 	defer instance.Close()
-
-	config.Ctx = context.WithValue(context.Background(), "instance", instance)
-
-	runtime.GC()
-	debug.FreeOSMemory()
 
 	{
 		osSignals := make(chan os.Signal, 1)

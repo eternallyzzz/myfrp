@@ -78,8 +78,10 @@ func DoReverseSrv(ctx context.Context, p *model.Proxy) (*model.RemoteProxy, erro
 		}
 	}
 
+	rProxy.RemoteServices = rServices
+
 	ctx, cancel := context.WithCancel(ctx)
-	rpServer := &RpServer{Ctx: ctx, Cancel: cancel}
+	rpServer := &RpServer{Ctx: ctx, Cancel: cancel, ConnMap: &sync.Map{}}
 
 	rpServer.Endpoint = endpoint
 	rpServer.Listeners = &listeners
@@ -100,78 +102,81 @@ func acceptQUICConnections(srv *RpServer) {
 			return
 		}
 
-		go func(conn *quic.Conn) {
-			stream, err := conn.AcceptStream(srv.Ctx)
+		go handleQUICConn(accept, srv)
+	}
+}
+
+func handleQUICConn(conn *quic.Conn, srv *RpServer) {
+	stream, err := conn.AcceptStream(srv.Ctx)
+	if err != nil {
+		return
+	}
+	defer stream.Close()
+
+	buff := make([]byte, 64)
+
+	timeout, cancelFunc := context.WithTimeout(srv.Ctx, time.Second*5)
+	defer cancelFunc()
+
+	stream.SetReadContext(timeout)
+
+	n, err := stream.Read(buff)
+	if err != nil {
+		return
+	}
+
+	var h model.Handshake
+	err = json.Unmarshal(buff[:n], &h)
+	if err != nil {
+		return
+	}
+
+	srv.ConnMap.Store(fmt.Sprintf("%s:%s", h.Tag, h.Network), conn)
+	v, ok := srv.Listeners.Load(h.Tag)
+
+	if ok {
+		instance := config.Ctx.Value("instance").(*core.Instance)
+		switch h.Network {
+		case config.NetworkTCP:
+			listener := v.(net2.Listener)
+
+			ctx, c := context.WithCancel(srv.Ctx)
+
+			tsrv := &stcp.Server{
+				Ctx:      ctx,
+				Cancel:   c,
+				Conn:     conn,
+				Listener: listener,
+				EventCh:  make(chan string, 10),
+			}
+
+			err := instance.AddTask(tsrv)
 			if err != nil {
+				zlog.Error("rSrv failed star", zap.Error(err))
 				return
 			}
-			defer stream.Close()
+			break
+		case config.NetworkUDP:
+			listener := v.(*net2.UDPConn)
 
-			buff := make([]byte, 64)
+			ctx, c := context.WithCancel(srv.Ctx)
 
-			timeout, cancelFunc := context.WithTimeout(srv.Ctx, time.Second*5)
-			defer cancelFunc()
+			usrv := &sudp.Server{
+				Ctx:      ctx,
+				Cancel:   c,
+				Conn:     conn,
+				Listener: listener,
+				EventCh:  make(chan string, 10),
+				Lock:     &sync.Mutex{},
+			}
 
-			stream.SetReadContext(timeout)
-
-			n, err := stream.Read(buff)
+			err := instance.AddTask(usrv)
 			if err != nil {
+				zlog.Error("rSrv failed star", zap.Error(err))
 				return
 			}
-
-			var h model.Handshake
-			err = json.Unmarshal(buff[:n], &h)
-			if err != nil {
-				return
-			}
-
-			srv.ConnMap.Store(fmt.Sprintf("%s:%s", h.Tag, h.Network), conn)
-			v, ok := srv.Listeners.Load(h.Tag)
-
-			if ok {
-				instance := config.Ctx.Value("instance").(*core.Instance)
-				switch h.Network {
-				case config.NetworkTCP:
-					listener := v.(net2.Listener)
-
-					ctx, c := context.WithCancel(srv.Ctx)
-
-					tsrv := &stcp.Server{
-						Ctx:      ctx,
-						Cancel:   c,
-						Conn:     conn,
-						Listener: listener,
-						EventCh:  make(chan string, 10),
-					}
-
-					err := instance.AddTask(tsrv)
-					if err != nil {
-						zlog.Error("rSrv failed star", zap.Error(err))
-						return
-					}
-					break
-				case config.NetworkUDP:
-					listener := v.(*net2.UDPConn)
-
-					ctx, c := context.WithCancel(srv.Ctx)
-
-					usrv := &sudp.Server{
-						Ctx:      ctx,
-						Cancel:   c,
-						Conn:     conn,
-						Listener: listener,
-						EventCh:  make(chan string, 10),
-					}
-
-					err := instance.AddTask(usrv)
-					if err != nil {
-						zlog.Error("rSrv failed star", zap.Error(err))
-						return
-					}
-					break
-				}
-			}
-		}(accept)
+			break
+		}
 	}
 }
 
@@ -232,6 +237,7 @@ func DoReverseCli(ctx context.Context, dial *quic.Conn, p *model.Proxy) (*RpClie
 	if err != nil {
 		return nil, err
 	}
+	stream.Flush()
 
 	buff := make([]byte, 1500)
 	var rProxy model.RemoteProxy
@@ -252,6 +258,14 @@ func DoReverseCli(ctx context.Context, dial *quic.Conn, p *model.Proxy) (*RpClie
 
 	var pcs []*model.ProxyConfig
 
+	ip, err := net.GetExternalIP()
+	if err != nil {
+		return nil, err
+	}
+	if rProxy.Transfer.Address == ip {
+		rProxy.Transfer.Address = "127.0.0.1"
+	}
+
 	if rProxy.Type == p.Type {
 		serviceMap := make(map[string]*model.Service)
 		for _, service := range p.LocalServices {
@@ -260,6 +274,10 @@ func DoReverseCli(ctx context.Context, dial *quic.Conn, p *model.Proxy) (*RpClie
 
 		for _, rService := range rProxy.RemoteServices {
 			if localService, found := serviceMap[rService.Tag]; found {
+				if rService.Listen.Listen == ip {
+					rService.Listen.Listen = "127.0.0.1"
+				}
+
 				pcs = append(pcs, &model.ProxyConfig{
 					Local: localService,
 					Remote: &model.RemoteService{
@@ -338,6 +356,7 @@ func (r *RpClient) Run() error {
 				LocalProxy:  rt.LocalProxy,
 				RemoteProxy: rt.RemoteProxy,
 				Transfer:    rt.Transfer,
+				UDPConnMaps: &sync.Map{},
 			}
 			err := instance.AddTask(tsrv)
 			if err != nil {

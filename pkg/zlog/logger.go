@@ -24,8 +24,9 @@ var (
 
 func Init(c *model.Log) error {
 	developmentEncoderConfig := zap.NewDevelopmentEncoderConfig()
-	developmentEncoderConfig.StacktraceKey = ""
-	developmentEncoderConfig.EncodeCaller = nil
+	//developmentEncoderConfig.StacktraceKey = ""
+	developmentEncoderConfig.EncodeCaller = zapcore.ShortCallerEncoder
+	//developmentEncoderConfig.EncodeCaller = nil
 	developmentEncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	consoleEncoder := zapcore.NewConsoleEncoder(developmentEncoderConfig)
 
