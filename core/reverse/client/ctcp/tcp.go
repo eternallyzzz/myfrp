@@ -3,6 +3,7 @@ package ctcp
 import (
 	"context"
 	"endpoint/pkg/common"
+	"endpoint/pkg/config"
 	"endpoint/pkg/model"
 	"endpoint/pkg/zlog"
 	"errors"
@@ -66,9 +67,17 @@ func (s *Server) listenQUIC() {
 		if err != nil {
 			return
 		}
-		if stream.IsReadOnly() {
+		readByte, err := stream.ReadByte()
+		if err != nil {
+			return
+		}
+
+		switch readByte {
+		case config.MsgType:
+			go common.Heartbeat(stream)
 			go common.HandleSrvEvent(stream)
-		} else {
+			break
+		case config.ContentType:
 			dial, err := net.Dial(s.LocalProxy.Protocol, s.LocalProxy.String())
 			if err != nil {
 				_ = stream.Close()
@@ -77,7 +86,10 @@ func (s *Server) listenQUIC() {
 				continue
 			}
 
-			go common.Copy(dial, stream, nil, "")
+			p := &common.Pipe{Stream: stream}
+
+			go common.Copy(dial, p, nil, "")
+			break
 		}
 	}
 }

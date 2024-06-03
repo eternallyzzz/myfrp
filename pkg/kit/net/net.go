@@ -71,7 +71,7 @@ func GetTcpListener() (net.Listener, int, error) {
 		return nil, 0, err
 	}
 
-	zlog.Info(fmt.Sprintf("Listen in [%s]%s", l.Addr().Network(), l.Addr().String()))
+	zlog.Info(fmt.Sprintf("listening TCP on [%s]%s", l.Addr().Network(), l.Addr().String()))
 
 	return l, port, nil
 }
@@ -88,7 +88,7 @@ func GetUdpListener() (*net.UDPConn, int, error) {
 		return nil, 0, err
 	}
 
-	zlog.Info(fmt.Sprintf("Listen in [%s]%s", l.LocalAddr().Network(), l.LocalAddr().String()))
+	zlog.Info(fmt.Sprintf("listening UDP in [%s]%s", l.LocalAddr().Network(), l.LocalAddr().String()))
 
 	return l, port, nil
 }

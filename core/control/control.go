@@ -24,7 +24,7 @@ type Listen struct {
 }
 
 func (l *Listen) Run() error {
-	zlog.Info(fmt.Sprintf("Control Listen in [udp]%s", l.Endpoint.LocalAddr().String()))
+	zlog.Warn(fmt.Sprintf("Control listening UDP on %s", l.Endpoint.LocalAddr().String()))
 	go func() {
 		for {
 			conn, err := l.Endpoint.Accept(l.Ctx)
@@ -106,7 +106,12 @@ func handleConn(ctx context.Context, conn *quic.Conn) {
 	}
 	stream.Flush()
 
-	time.Sleep(time.Second * 5)
+	b := make([]byte, 2)
+	_, err = stream.Read(b)
+	if err != nil {
+		zlog.Error(err.Error())
+		return
+	}
 }
 
 func ListenCreator(ctx context.Context, v any) (any, error) {

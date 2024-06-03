@@ -7,15 +7,23 @@ import (
 	"endpoint/pkg/config"
 	"endpoint/pkg/model"
 	"endpoint/pkg/zlog"
+	"fmt"
 	"github.com/spf13/viper"
 	"os"
 	"strings"
+	"time"
 )
 
 func Init(path string) (*model.Config, error) {
 	if c, err := loadConfig(path); err != nil {
 		return nil, err
 	} else {
+		if c.Quic != nil {
+			config.MaxStreams = c.Quic.MaxIncomeStreams
+			config.MaxIdle = time.Duration(c.Quic.MaxIdle) * time.Second
+			config.KeepAlive = time.Duration(c.Quic.Keepalive) * time.Second
+		}
+
 		return c, zlog.Init(c.Log)
 	}
 }
@@ -30,6 +38,8 @@ func loadConfig(path string) (*model.Config, error) {
 			_ = file.Close()
 		}
 	}
+
+	fmt.Println(time.Now().Format(time.RFC3339), "	INFO", "	Use config: "+path)
 
 	viper.SetConfigFile(path)
 

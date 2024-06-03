@@ -124,6 +124,11 @@ func handleQUICConn(conn *quic.Conn, srv *RpServer) {
 	if err != nil {
 		return
 	}
+	_, err = stream.Write([]byte{0x0})
+	if err != nil {
+		return
+	}
+	stream.Flush()
 
 	var h model.Handshake
 	err = json.Unmarshal(buff[:n], &h)
@@ -148,6 +153,7 @@ func handleQUICConn(conn *quic.Conn, srv *RpServer) {
 				Conn:     conn,
 				Listener: listener,
 				EventCh:  make(chan string, 10),
+				Lock:     &sync.Mutex{},
 			}
 
 			err := instance.AddTask(tsrv)
@@ -251,6 +257,12 @@ func DoReverseCli(ctx context.Context, dial *quic.Conn, p *model.Proxy) (*RpClie
 		return nil, err
 	}
 
+	_, err = stream.Write([]byte{0x0})
+	if err != nil {
+		return nil, err
+	}
+	stream.Flush()
+
 	err = json.Unmarshal(buff[:n], &rProxy)
 	if err != nil {
 		return nil, err
@@ -349,7 +361,7 @@ func (r *RpClient) Run() error {
 			break
 		case config.NetworkUDP:
 			ctx, c := context.WithCancel(r.Ctx)
-			tsrv := &cudp.Server{
+			usrv := &cudp.Server{
 				Ctx:         ctx,
 				Cancel:      c,
 				Endpoint:    rt.Endpoint,
@@ -358,7 +370,7 @@ func (r *RpClient) Run() error {
 				Transfer:    rt.Transfer,
 				UDPConnMaps: &sync.Map{},
 			}
-			err := instance.AddTask(tsrv)
+			err := instance.AddTask(usrv)
 			if err != nil {
 				return err
 			}

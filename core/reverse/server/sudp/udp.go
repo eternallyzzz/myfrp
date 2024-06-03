@@ -26,14 +26,23 @@ type Server struct {
 }
 
 func (s *Server) Run() error {
+	s.Lock.Lock()
+	defer s.Lock.Unlock()
+
 	s.UDPConnMaps = make(map[string]*WorkConnState)
 
-	sendStream, err := s.Conn.NewSendOnlyStream(s.Ctx)
+	stream, err := s.Conn.NewStream(s.Ctx)
 	if err != nil {
 		return err
 	}
+	_, err = stream.Write([]byte{config.MsgType})
+	if err != nil {
+		return err
+	}
+	stream.Flush()
 
-	go common.HandleEvent(sendStream, s.EventCh)
+	go s.handleHeartbeat(stream)
+	go common.HandleEvent(stream, s.EventCh)
 	go s.listenUDP()
 	go s.checkInactiveStreams()
 
@@ -42,6 +51,9 @@ func (s *Server) Run() error {
 }
 
 func (s *Server) Close() error {
+	s.Lock.Lock()
+	defer s.Lock.Unlock()
+
 	if !s.Running {
 		return nil
 	}
@@ -53,8 +65,31 @@ func (s *Server) Close() error {
 	errs[1] = s.Listener.Close()
 
 	s.Running = !s.Running
+	zlog.Info(fmt.Sprintf("UDP Listener: %s Closed", s.Listener.LocalAddr().String()))
 
 	return errors.Join(errs...)
+}
+
+func (s *Server) handleHeartbeat(stream *quic.Stream) {
+	defer func(s *Server) {
+		err := s.Close()
+		if err != nil {
+			if err != nil && !zlog.Ignore(err) {
+				zlog.Error(err.Error())
+			}
+		}
+	}(s)
+
+	for {
+		timeout, cancelFunc := context.WithTimeout(s.Ctx, time.Second*5)
+		stream.SetReadContext(timeout)
+
+		_, err := encode.Decode(stream)
+		if err != nil {
+			cancelFunc()
+			return
+		}
+	}
 }
 
 func (s *Server) listenUDP() {
@@ -114,7 +149,7 @@ func (s *Server) listenUDP() {
 		s.UDPConnMaps[addr.String()] = udpConnState
 		s.Lock.Unlock()
 
-		s.EventCh <- fmt.Sprintf("%s=%d*", addr.String(), 0)
+		s.EventCh <- fmt.Sprintf("%s connected", addr.String())
 	}
 }
 
@@ -204,7 +239,7 @@ func (s *Server) checkInactiveStreams() {
 			for k, state := range s.UDPConnMaps {
 				if time.Now().Sub(state.Ts).Seconds() > config.UDPConnTimeOut {
 					delete(s.UDPConnMaps, k)
-					s.EventCh <- fmt.Sprintf("%s=%d*", state.Addr.String(), 1)
+					s.EventCh <- fmt.Sprintf("%s disconnected", state.Addr.String())
 					go state.Close()
 				}
 			}

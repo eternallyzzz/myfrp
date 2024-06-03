@@ -42,12 +42,12 @@ func startEndpoint() error {
 
 	instance, err := core.New(c)
 	if err != nil {
-		return errors.New("Failed to start:" + err.Error())
+		return errors.New("Failed to start: " + err.Error())
 	}
 	config.Ctx = context.WithValue(context.Background(), "instance", instance)
 
 	if err = instance.Start(); err != nil {
-		return errors.New("Failed to start:" + err.Error())
+		return errors.New("Failed to start: " + err.Error())
 	}
 	defer instance.Close()
 

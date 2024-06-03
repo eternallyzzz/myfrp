@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -24,17 +25,18 @@ var (
 
 func Init(c *model.Log) error {
 	developmentEncoderConfig := zap.NewDevelopmentEncoderConfig()
-	//developmentEncoderConfig.StacktraceKey = ""
+	developmentEncoderConfig.StacktraceKey = ""
 	developmentEncoderConfig.EncodeCaller = zapcore.ShortCallerEncoder
 	//developmentEncoderConfig.EncodeCaller = nil
-	developmentEncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	developmentEncoderConfig.EncodeTime = zapcore.RFC3339TimeEncoder
 	consoleEncoder := zapcore.NewConsoleEncoder(developmentEncoderConfig)
 
 	fileEncoderConfig := zap.NewProductionEncoderConfig()
-	//fileEncoderConfig.StacktraceKey = ""
-	fileEncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	fileEncoderConfig.EncodeTime = zapcore.RFC3339TimeEncoder
 	fileEncoderConfig.EncodeDuration = zapcore.StringDurationEncoder
+	fileEncoderConfig.StacktraceKey = ""
 	fileEncoderConfig.EncodeCaller = zapcore.ShortCallerEncoder
+	//fileEncoderConfig.EncodeCaller = nil
 	fileEncoder := zapcore.NewConsoleEncoder(fileEncoderConfig)
 
 	path := fmt.Sprintf("error_%s.log", time.Now().Format(time.DateOnly))
@@ -109,3 +111,16 @@ func UnwrapWithMessage(msg string, err error, fields ...zap.Field) {
 		logger.Error("", fields...)
 	}
 }
+
+func Ignore(err error) bool {
+	if strings.Contains(err.Error(), closeStreamErr) || strings.Contains(err.Error(), opErr) || strings.Contains(err.Error(), noPeerResp) {
+		return true
+	}
+	return false
+}
+
+var (
+	closeStreamErr = "read from closed stream"
+	opErr          = "use of closed network connection"
+	noPeerResp     = "peer did not respond to CONNECTION_CLOSE"
+)

@@ -3,6 +3,7 @@ package common
 import (
 	"endpoint/pkg/zlog"
 	"fmt"
+	"golang.org/x/net/quic"
 	"io"
 	"sync"
 )
@@ -16,7 +17,7 @@ func Copy(dst io.ReadWriteCloser, src io.ReadWriteCloser, eventCh chan string, a
 		defer o.Close()
 
 		_, err := io.Copy(i, o)
-		if err != nil {
+		if err != nil && !zlog.Ignore(err) {
 			errs = append(errs, err)
 		}
 	}
@@ -31,6 +32,24 @@ func Copy(dst io.ReadWriteCloser, src io.ReadWriteCloser, eventCh chan string, a
 	}
 
 	if eventCh != nil {
-		eventCh <- fmt.Sprintf("%s=%d*", addr, 1)
+		eventCh <- fmt.Sprintf("%s disconnected", addr)
 	}
+}
+
+type Pipe struct {
+	Stream *quic.Stream
+}
+
+func (p *Pipe) Read(b []byte) (n int, err error) {
+	return p.Stream.Read(b)
+}
+
+func (p *Pipe) Write(b []byte) (n int, err error) {
+	n, err = p.Stream.Write(b)
+	p.Stream.Flush()
+	return
+}
+
+func (p *Pipe) Close() error {
+	return p.Stream.Close()
 }

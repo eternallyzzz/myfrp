@@ -23,3 +23,8 @@ control:
 #        - listen: 127.0.0.1
 #          port: 10003
 #          protocol: udp
+
+quic:
+  maxIdle: -1
+  maxIncomeStreams: 100
+  keepalive: 20

@@ -72,10 +72,17 @@ func (s *Server) listenQUIC() {
 		if err != nil {
 			return
 		}
+		readByte, err := stream.ReadByte()
+		if err != nil {
+			return
+		}
 
-		if stream.IsReadOnly() {
+		switch readByte {
+		case config.MsgType:
+			go common.Heartbeat(stream)
 			go common.HandleSrvEvent(stream)
-		} else {
+			break
+		case config.ContentType:
 			var wg sync.WaitGroup
 
 			conn, err := udpConnect(s.LocalProxy.String())
@@ -103,6 +110,7 @@ func (s *Server) listenQUIC() {
 			go udpConnState.Write()
 			go udpConnState.InUDP()
 			go udpConnState.OutUDP()
+			break
 		}
 	}
 }
@@ -126,6 +134,7 @@ func (w *WorkConnState) Read() {
 		if err != nil {
 			return
 		}
+		fmt.Println(string(decode))
 
 		w.ReadCh <- decode
 	}

@@ -7,6 +7,7 @@ import (
 type Config struct {
 	Log     *Log     `json:"log"`
 	Control *Control `json:"control"`
+	Quic    *QUIC    `json:"quic"`
 }
 
 type Log struct {
@@ -19,6 +20,12 @@ type Control struct {
 	Role   []string       `json:"role"`
 	Listen *ListenControl `json:"listen"`
 	Conn   *ConnControl   `json:"conn"`
+}
+
+type QUIC struct {
+	MaxIncomeStreams int64 `json:"maxIncomeStreams"`
+	MaxIdle          int64 `json:"maxIdle"`
+	Keepalive        int   `json:"keepalive"`
 }
 
 type ListenControl struct {

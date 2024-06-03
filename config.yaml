@@ -9,3 +9,8 @@ control:
   listen:
     address: ""
     port: 12306
+
+quic:
+  maxIdle: -1
+  maxIncomeStreams: 100
+  keepalive: 20

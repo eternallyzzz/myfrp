@@ -4,12 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"endpoint/pkg/config"
+	"endpoint/pkg/kit/encode"
 	"endpoint/pkg/kit/tls"
 	"endpoint/pkg/model"
 	"endpoint/pkg/zlog"
-	"fmt"
 	"golang.org/x/net/quic"
-	"strings"
 	"time"
 )
 
@@ -48,7 +47,7 @@ func HandleEvent(stream *quic.Stream, eventCh chan string) {
 				return
 			}
 
-			_, err := stream.Write([]byte(v))
+			_, err := stream.Write(encode.Encode([]byte(v)))
 			if err != nil {
 				return
 			}
@@ -60,31 +59,12 @@ func HandleEvent(stream *quic.Stream, eventCh chan string) {
 func HandleSrvEvent(stream *quic.Stream) {
 	defer stream.Close()
 
-	buff := make([]byte, 64)
-
 	for {
-		n, err := stream.Read(buff)
+		decode, err := encode.Decode(stream)
 		if err != nil {
 			return
 		}
-		fetchData(buff[:n])
-	}
-}
-
-func fetchData(data []byte) {
-	split := strings.Split(string(data), "*")
-	for _, sp := range split {
-		i := strings.Split(sp, "=")
-		if len(i) > 1 {
-			switch i[1] {
-			case "0":
-				zlog.Info(fmt.Sprintf("%s connected", i[0]))
-				break
-			case "1":
-				zlog.Info(fmt.Sprintf("%s disconnected", i[0]))
-				break
-			}
-		}
+		zlog.Info(string(decode))
 	}
 }
 
@@ -115,7 +95,25 @@ func PreMsg(ctx context.Context, endpoint *quic.Endpoint, addr *model.NetAddr, t
 	}
 	newStream.Flush()
 
-	time.Sleep(time.Second * 3)
+	buff := make([]byte, 2)
+	_, err = newStream.Read(buff)
+	if err != nil {
+		return nil, err
+	}
 
 	return pointDial, err
+}
+
+func Heartbeat(stream *quic.Stream) {
+	defer stream.Close()
+
+	for {
+		_, err := stream.Write(encode.Encode([]byte("PING")))
+		if err != nil {
+			return
+		}
+		stream.Flush()
+
+		time.Sleep(time.Second * 3)
+	}
 }

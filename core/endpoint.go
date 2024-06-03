@@ -12,6 +12,10 @@ import (
 )
 
 func New(iConfig *model.Config) (*Instance, error) {
+	if iConfig.Control == nil {
+		return nil, errors.New("invalid config")
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	instance := &Instance{Ctx: ctx, Cancel: cancel}
 
@@ -96,7 +100,7 @@ func (i *Instance) Start() error {
 		}
 	}
 
-	zlog.Info("Endpoint started")
+	zlog.Warn("Endpoint started")
 
 	return nil
 }
