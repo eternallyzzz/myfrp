@@ -26,8 +26,8 @@ var (
 func Init(c *model.Log) error {
 	developmentEncoderConfig := zap.NewDevelopmentEncoderConfig()
 	developmentEncoderConfig.StacktraceKey = ""
-	developmentEncoderConfig.EncodeCaller = zapcore.ShortCallerEncoder
-	//developmentEncoderConfig.EncodeCaller = nil
+	//developmentEncoderConfig.EncodeCaller = zapcore.ShortCallerEncoder
+	developmentEncoderConfig.EncodeCaller = nil
 	developmentEncoderConfig.EncodeTime = zapcore.RFC3339TimeEncoder
 	consoleEncoder := zapcore.NewConsoleEncoder(developmentEncoderConfig)
 
@@ -113,7 +113,8 @@ func UnwrapWithMessage(msg string, err error, fields ...zap.Field) {
 }
 
 func Ignore(err error) bool {
-	if strings.Contains(err.Error(), closeStreamErr) || strings.Contains(err.Error(), opErr) || strings.Contains(err.Error(), noPeerResp) {
+	if strings.Contains(err.Error(), closeStreamErr) || strings.Contains(err.Error(), opErr) ||
+		strings.Contains(err.Error(), noPeerResp) || strings.Contains(err.Error(), finalSizeErr) {
 		return true
 	}
 	return false
@@ -123,4 +124,5 @@ var (
 	closeStreamErr = "read from closed stream"
 	opErr          = "use of closed network connection"
 	noPeerResp     = "peer did not respond to CONNECTION_CLOSE"
+	finalSizeErr   = "end of stream occurs before prior data"
 )

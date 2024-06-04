@@ -9,7 +9,7 @@ var (
 	Ctx         context.Context
 	MaxStreams  int64 = 100
 	MaxIdle           = time.Minute * 30
-	KeepAlive         = time.Second * 10
+	KeepAlive         = time.Second * 20
 	ContentType byte  = 0
 	MsgType     byte  = 1
 )

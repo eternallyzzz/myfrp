@@ -126,6 +126,11 @@ func (s *Server) listenUDP() {
 		if err != nil {
 			return
 		}
+		_, err = stream.Write([]byte{config.ContentType})
+		if err != nil {
+			return
+		}
+		stream.Flush()
 
 		var wg sync.WaitGroup
 		udpConnState := &WorkConnState{
@@ -173,8 +178,8 @@ func (w *WorkConnState) Write() {
 			if !ok {
 				return
 			}
-			w.Ts = time.Now()
 
+			w.Ts = time.Now()
 			_, err := w.Stream.Write(encode.Encode(v))
 			if err != nil {
 				return

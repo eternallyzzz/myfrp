@@ -6,7 +6,7 @@ const (
 	NetworkQUIC         = "udp"
 	ServerTLS           = 0
 	ClientTLS           = 1
-	CfgBase             = "/config-c.yaml"
+	CfgBase             = "/config.yaml"
 	DefaultConsoleLevel = "warn"
 	DefaultFileLevel    = "error"
 	RoleSrv             = "server"
@@ -14,5 +14,5 @@ const (
 	BadService          = "bad service"
 	NetworkUDP          = "udp"
 	NetworkTCP          = "tcp"
-	UDPConnTimeOut      = 5
+	UDPConnTimeOut      = 20
 )

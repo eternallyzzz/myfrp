@@ -17,9 +17,9 @@ control:
         - listen: 127.0.0.1
           port: 8211
           protocol: udp
-#        - listen: 127.0.0.1
-#          port: 10002
-#          protocol: tcp
+        - listen: 127.0.0.1
+          port: 8080
+          protocol: tcp
 #        - listen: 127.0.0.1
 #          port: 10003
 #          protocol: udp

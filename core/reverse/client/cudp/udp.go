@@ -38,7 +38,7 @@ func (s *Server) Run() error {
 	s.Conn = dial
 
 	go s.listenQUIC()
-	go s.checkInactiveStreams()
+	//go s.checkInactiveStreams()
 
 	return nil
 }
@@ -72,6 +72,7 @@ func (s *Server) listenQUIC() {
 		if err != nil {
 			return
 		}
+
 		readByte, err := stream.ReadByte()
 		if err != nil {
 			return
@@ -134,7 +135,6 @@ func (w *WorkConnState) Read() {
 		if err != nil {
 			return
 		}
-		fmt.Println(string(decode))
 
 		w.ReadCh <- decode
 	}
