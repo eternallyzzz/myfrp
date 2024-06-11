@@ -5,9 +5,20 @@ import (
 )
 
 type Config struct {
-	Log     *Log     `json:"log"`
-	Control *Control `json:"control"`
-	Quic    *QUIC    `json:"quic"`
+	Log    *Log     `json:"log"`
+	Quic   *QUIC    `json:"quic"`
+	Role   []string `json:"role"`
+	Server *Server  `json:"server"`
+	Client *Client  `json:"client"`
+}
+
+type Client struct {
+	Conn  *NetAddr `json:"conn"`
+	Proxy *Proxy   `json:"proxy"`
+}
+
+type Server struct {
+	Listen *NetAddr `json:"listen"`
 }
 
 type Log struct {
@@ -16,30 +27,15 @@ type Log struct {
 	LogFilePath  string `json:"logFilePath"`
 }
 
-type Control struct {
-	Role   []string       `json:"role"`
-	Listen *ListenControl `json:"listen"`
-	Conn   *ConnControl   `json:"conn"`
-}
-
 type QUIC struct {
 	MaxIncomeStreams int64 `json:"maxIncomeStreams"`
 	MaxIdle          int64 `json:"maxIdle"`
 	Keepalive        int   `json:"keepalive"`
 }
 
-type ListenControl struct {
-	*NetAddr
-}
-
-type ConnControl struct {
-	*NetAddr
-	Proxy *Proxy `json:"proxy"`
-}
-
 type Proxy struct {
-	Type          string     `json:"type"`
-	LocalServices []*Service `json:"localServices"`
+	Type     string     `json:"type"`
+	Services []*Service `json:"services"`
 }
 
 type NetAddr struct {

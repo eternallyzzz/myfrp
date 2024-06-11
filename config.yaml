@@ -2,15 +2,13 @@ log:
   consoleLevel: debug
   fileLevel: error
   logFilePath: ""
-
-control:
-  role:
-    - server
-  listen:
-    address: ""
-    port: 12306
-
 quic:
   maxIdle: -1
   maxIncomeStreams: 100
   keepalive: 20
+role:
+  - server
+server:
+  listen:
+    address: 127.0.0.1
+    port: 12306

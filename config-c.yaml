@@ -2,29 +2,25 @@ log:
   consoleLevel: debug
   fileLevel: error
   logFilePath: ""
-
-control:
-  role:
-    - client
-    # 客户端开启下面配置，服务端可不配置
-  conn:
-    address: 127.0.0.1
-    port: 12306
-
-    proxy:
-      type: reverse
-      localServices:
-        - listen: 127.0.0.1
-          port: 8211
-          protocol: udp
-        - listen: 127.0.0.1
-          port: 8080
-          protocol: tcp
-#        - listen: 127.0.0.1
-#          port: 10003
-#          protocol: udp
-
 quic:
   maxIdle: -1
   maxIncomeStreams: 100
   keepalive: 20
+role:
+  - client
+client:
+  conn:
+    address: 127.0.0.1
+    port: 12306
+  proxy:
+    type: reverse
+    services:
+      - address: 127.0.0.1
+        port: 8211
+        protocol: udp
+      - address: 127.0.0.1
+        port: 8080
+        protocol: tcp
+      - address: 127.0.0.1
+        port: 10003
+        protocol: udp

@@ -115,12 +115,12 @@ func handleConn(ctx context.Context, conn *quic.Conn) {
 }
 
 func ListenCreator(ctx context.Context, v any) (any, error) {
-	listenConfig, ok := v.(*model.ListenControl)
+	listenConfig, ok := v.(*model.Server)
 	if !ok {
 		return nil, errors.New("invalid config type")
 	}
 
-	endpoint, err := common.GetEndpoint(listenConfig.NetAddr)
+	endpoint, err := common.GetEndpoint(listenConfig.Listen)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +129,7 @@ func ListenCreator(ctx context.Context, v any) (any, error) {
 }
 
 func ConnCreator(ctx context.Context, v any) (any, error) {
-	connConfig, ok := v.(*model.ConnControl)
+	connConfig, ok := v.(*model.Client)
 	if !ok {
 		return nil, errors.New("invalid config type")
 	}
@@ -140,7 +140,7 @@ func ConnCreator(ctx context.Context, v any) (any, error) {
 	}
 	defer endpoint.Close(ctx)
 
-	dial, err := common.GetEndPointDial(ctx, endpoint, connConfig.NetAddr)
+	dial, err := common.GetEndPointDial(ctx, endpoint, connConfig.Conn)
 	if err != nil {
 		return nil, nil
 	}
@@ -154,14 +154,14 @@ func ConnCreator(ctx context.Context, v any) (any, error) {
 }
 
 func genTag(l *model.Proxy) {
-	for _, service := range l.LocalServices {
+	for _, service := range l.Services {
 		service.Tag = id.GetSnowflakeID().String()
 	}
 }
 
 func init() {
-	lc := reflect.TypeOf(&model.ListenControl{})
+	lc := reflect.TypeOf(&model.Server{})
 	common.ServerContext[lc] = ListenCreator
-	cc := reflect.TypeOf(&model.ConnControl{})
+	cc := reflect.TypeOf(&model.Client{})
 	common.ServerContext[cc] = ConnCreator
 }

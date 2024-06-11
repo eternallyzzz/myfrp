@@ -12,7 +12,7 @@ import (
 )
 
 func New(iConfig *model.Config) (*Instance, error) {
-	if iConfig.Control == nil {
+	if iConfig.Server == nil && iConfig.Client == nil {
 		return nil, errors.New("invalid config")
 	}
 
@@ -28,10 +28,10 @@ func New(iConfig *model.Config) (*Instance, error) {
 }
 
 func initInstance(ins *Instance, iConfig *model.Config) error {
-	for _, role := range iConfig.Control.Role {
+	for _, role := range iConfig.Role {
 		switch role {
 		case config.RoleSrv:
-			o, err := common.GetServerInstance(ins.Ctx, iConfig.Control.Listen)
+			o, err := common.GetServerInstance(ins.Ctx, iConfig.Server)
 			if err != nil {
 				return err
 			}
@@ -43,7 +43,7 @@ func initInstance(ins *Instance, iConfig *model.Config) error {
 			}
 			break
 		case config.RoleCli:
-			o, err := common.GetServerInstance(ins.Ctx, iConfig.Control.Conn)
+			o, err := common.GetServerInstance(ins.Ctx, iConfig.Client)
 			if err != nil {
 				return err
 			}

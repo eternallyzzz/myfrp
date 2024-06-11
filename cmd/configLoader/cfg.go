@@ -58,8 +58,8 @@ func loadConfig(path string) (*model.Config, error) {
 		return nil, err
 	}
 
-	if &cfg != nil && cfg.Control != nil && cfg.Control.Conn != nil && cfg.Control.Conn.Proxy != nil && cfg.Control.Conn.Proxy.LocalServices != nil {
-		for _, service := range cfg.Control.Conn.Proxy.LocalServices {
+	if &cfg != nil && cfg.Client != nil && cfg.Client.Proxy != nil && cfg.Client.Proxy.Services != nil {
+		for _, service := range cfg.Client.Proxy.Services {
 			service.Protocol = strings.ToLower(service.Protocol)
 		}
 	}

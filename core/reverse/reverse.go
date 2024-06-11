@@ -39,7 +39,7 @@ func DoReverseSrv(ctx context.Context, p *model.Proxy) (*model.RemoteProxy, erro
 
 	var rServices []*model.RemoteService
 	var listeners sync.Map
-	for _, service := range p.LocalServices {
+	for _, service := range p.Services {
 		switch service.Protocol {
 		case config.NetworkUDP:
 			listener, port, err := net.GetUdpListener()
@@ -280,7 +280,7 @@ func DoReverseCli(ctx context.Context, dial *quic.Conn, p *model.Proxy) (*RpClie
 
 	if rProxy.Type == p.Type {
 		serviceMap := make(map[string]*model.Service)
-		for _, service := range p.LocalServices {
+		for _, service := range p.Services {
 			serviceMap[service.Tag] = service
 		}
 
