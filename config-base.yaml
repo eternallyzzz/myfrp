@@ -18,6 +18,7 @@ role:
   - server
   - client
 server:
+  randomPort: 10000-20000
   listen:
     address: 127.0.0.1
     port: 12306
