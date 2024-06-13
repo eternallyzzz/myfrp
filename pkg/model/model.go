@@ -19,7 +19,8 @@ type Client struct {
 }
 
 type Server struct {
-	Listen *NetAddr `json:"listen"`
+	RandomPort string   `json:"randomPort"`
+	Listen     *NetAddr `json:"listen"`
 }
 
 type Log struct {

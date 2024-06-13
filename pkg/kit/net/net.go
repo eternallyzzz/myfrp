@@ -3,15 +3,22 @@ package net
 import (
 	"endpoint/pkg/zlog"
 	"fmt"
+	"github.com/spf13/viper"
 	"io"
 	"math/rand"
 	"net"
 	"net/http"
+	"strconv"
+	"strings"
+	"sync"
 	"time"
 )
 
 var (
-	address string
+	address  string
+	one      sync.Once
+	highPort = 50001
+	lowPort  = 10000
 )
 
 func GetExternalIP() (string, error) {
@@ -30,9 +37,25 @@ func GetExternalIP() (string, error) {
 }
 
 func GetFreePort() int {
+	one.Do(func() {
+		value := viper.GetString("server.randomPort")
+		if value != "" {
+			split := strings.Split(value, "-")
+			low, err := strconv.Atoi(split[0])
+			zlog.UnwrapFatal(err)
+			high, err := strconv.Atoi(split[1])
+			zlog.UnwrapFatal(err)
+
+			if low < high {
+				highPort = high
+				lowPort = low
+			}
+		}
+	})
+
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	for {
-		p := r.Intn(50001) + 10000
+		p := r.Intn(highPort) + lowPort
 		if !CheckPortAvailability(p) {
 			return p
 		}
