@@ -17,7 +17,7 @@ import (
 var (
 	address  string
 	one      sync.Once
-	highPort = 50001
+	highPort = 60000
 	lowPort  = 10000
 )
 
@@ -55,7 +55,7 @@ func GetFreePort() int {
 
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	for {
-		p := r.Intn(highPort) + lowPort
+		p := r.Intn(highPort-lowPort) + lowPort
 		if !CheckPortAvailability(p) {
 			return p
 		}
