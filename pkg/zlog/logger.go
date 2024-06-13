@@ -6,75 +6,98 @@ import (
 	"fmt"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"log"
 	"os"
-	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
 var (
-	logger *zap.Logger
-	levels = map[string]zapcore.Level{
+	lock    sync.Mutex
+	logger  *zap.Logger
+	preFile *os.File
+	levels  = map[string]zapcore.Level{
 		"debug": zap.DebugLevel,
 		"info":  zap.InfoLevel,
 		"warn":  zap.WarnLevel,
 		"error": zap.ErrorLevel,
 		"fatal": zap.FatalLevel,
 	}
+	workDir, _ = os.Getwd()
+	logPath    = workDir + "/resource/log"
 )
 
 func Init(c *model.Log) error {
-	developmentEncoderConfig := zap.NewDevelopmentEncoderConfig()
-	developmentEncoderConfig.StacktraceKey = ""
-	//developmentEncoderConfig.EncodeCaller = zapcore.ShortCallerEncoder
-	developmentEncoderConfig.EncodeCaller = nil
-	developmentEncoderConfig.EncodeTime = zapcore.RFC3339TimeEncoder
-	consoleEncoder := zapcore.NewConsoleEncoder(developmentEncoderConfig)
+	f := func() {
+		developmentEncoderConfig := zap.NewDevelopmentEncoderConfig()
+		developmentEncoderConfig.StacktraceKey = ""
+		developmentEncoderConfig.EncodeCaller = nil
+		developmentEncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+		consoleEncoder := zapcore.NewConsoleEncoder(developmentEncoderConfig)
 
-	fileEncoderConfig := zap.NewProductionEncoderConfig()
-	fileEncoderConfig.EncodeTime = zapcore.RFC3339TimeEncoder
-	fileEncoderConfig.EncodeDuration = zapcore.StringDurationEncoder
-	fileEncoderConfig.StacktraceKey = ""
-	fileEncoderConfig.EncodeCaller = zapcore.ShortCallerEncoder
-	//fileEncoderConfig.EncodeCaller = nil
-	fileEncoder := zapcore.NewConsoleEncoder(fileEncoderConfig)
+		fileEncoderConfig := zap.NewProductionEncoderConfig()
+		fileEncoderConfig.StacktraceKey = ""
+		fileEncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+		fileEncoderConfig.EncodeDuration = zapcore.StringDurationEncoder
+		fileEncoderConfig.EncodeCaller = nil
+		fileEncoder := zapcore.NewConsoleEncoder(fileEncoderConfig)
 
-	path := fmt.Sprintf("error_%s.log", time.Now().Format(time.DateOnly))
-	if c != nil && c.LogFilePath != "" {
-		path = filepath.Join([]string{c.LogFilePath, path}...)
+		file, err := os.OpenFile(fmt.Sprintf("%s/error_%s.log", logPath, time.Now().Format(time.DateOnly)), os.O_CREATE|os.O_APPEND|os.O_RDWR, 0777)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		fL := config.DefaultFileLevel
+		cL := config.DefaultConsoleLevel
+
+		if c != nil && c.FileLevel != "" {
+			fL = c.FileLevel
+		}
+		if c != nil && c.ConsoleLevel != "" {
+			cL = c.ConsoleLevel
+		}
+
+		fileCore := zapcore.NewCore(
+			fileEncoder,
+			zapcore.AddSync(file),
+			levels[fL],
+		)
+
+		consoleCore := zapcore.NewCore(
+			consoleEncoder,
+			zapcore.AddSync(os.Stdout),
+			levels[cL],
+		)
+
+		lock.Lock()
+		defer lock.Unlock()
+
+		logger = zap.New(zapcore.NewTee(consoleCore, fileCore),
+			zap.AddCaller(),
+			zap.AddCallerSkip(1),
+			zap.AddStacktrace(zapcore.ErrorLevel),
+		)
+
+		if preFile != nil {
+			_ = preFile.Close()
+		}
+
+		preFile = file
 	}
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0777)
-	if err != nil {
-		return err
-	}
 
-	fL := config.DefaultFileLevel
-	cL := config.DefaultConsoleLevel
+	f()
 
-	if c != nil && c.FileLevel != "" {
-		fL = c.FileLevel
-	}
-	if c != nil && c.ConsoleLevel != "" {
-		cL = c.ConsoleLevel
-	}
+	go func() {
+		for {
+			now := time.Now()
+			nextDay := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
+			time.Sleep(time.Until(nextDay))
 
-	fileCore := zapcore.NewCore(
-		fileEncoder,
-		zapcore.AddSync(file),
-		levels[fL],
-	)
-
-	consoleCore := zapcore.NewCore(
-		consoleEncoder,
-		zapcore.AddSync(os.Stdout),
-		levels[cL],
-	)
-
-	logger = zap.New(zapcore.NewTee(consoleCore, fileCore),
-		zap.AddCaller(),
-		zap.AddCallerSkip(1),
-		zap.AddStacktrace(zapcore.ErrorLevel),
-	)
+			f()
+		}
+	}()
 	return nil
 }
 
