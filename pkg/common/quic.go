@@ -16,12 +16,7 @@ func GetEndpoint(addr *model.NetAddr) (*quic.Endpoint, error) {
 	if addr == nil {
 		return nil, nil
 	}
-	l, err := quic.Listen(config.NetworkQUIC, addr.String(), &quic.Config{
-		TLSConfig:            tls.GetTLSConfig(config.ServerTLS, ""),
-		MaxIdleTimeout:       config.MaxIdle,
-		KeepAlivePeriod:      config.KeepAlive,
-		MaxBidiRemoteStreams: config.MaxStreams,
-	})
+	l, err := quic.Listen(config.NetworkQUIC, addr.String(), getSrvCfg())
 	if err != nil {
 		return nil, err
 	}
@@ -29,11 +24,7 @@ func GetEndpoint(addr *model.NetAddr) (*quic.Endpoint, error) {
 }
 
 func GetEndPointDial(ctx context.Context, endpoint *quic.Endpoint, addr *model.NetAddr) (*quic.Conn, error) {
-	dial, err := endpoint.Dial(ctx, config.NetworkQUIC, addr.String(), &quic.Config{
-		TLSConfig:       tls.GetTLSConfig(config.ClientTLS, addr.Address),
-		MaxIdleTimeout:  config.MaxIdle,
-		KeepAlivePeriod: config.KeepAlive,
-	})
+	dial, err := endpoint.Dial(ctx, config.NetworkQUIC, addr.String(), getCliCfg(addr.Address))
 	return dial, err
 }
 
@@ -115,5 +106,52 @@ func Heartbeat(stream *quic.Stream) {
 		stream.Flush()
 
 		time.Sleep(time.Second * 3)
+	}
+}
+
+func getSrvCfg() *quic.Config {
+	q := quic.Config{
+		TLSConfig: tls.GetTLSConfig(config.ServerTLS, ""),
+	}
+	convertToQUIC(&q)
+
+	if config.QUICCfg.TLS != nil {
+		q.TLSConfig = tls.GetTLSConfigWithCustom(config.ServerTLS, "", config.QUICCfg.TLS.Crt, config.QUICCfg.TLS.Key)
+	}
+
+	return &q
+}
+
+func getCliCfg(addr string) *quic.Config {
+	q := quic.Config{
+		TLSConfig: tls.GetTLSConfig(config.ClientTLS, addr),
+	}
+	convertToQUIC(&q)
+	return &q
+}
+
+func convertToQUIC(q *quic.Config) {
+	if config.QUICCfg != nil {
+		q.MaxStreamReadBufferSize = config.QUICCfg.MaxStreamReadBufferSize
+		q.MaxStreamWriteBufferSize = config.QUICCfg.MaxStreamWriteBufferSize
+		q.MaxConnReadBufferSize = config.QUICCfg.MaxConnReadBufferSize
+		q.MaxBidiRemoteStreams = config.QUICCfg.MaxBidiRemoteStreams
+		q.MaxUniRemoteStreams = config.QUICCfg.MaxUniRemoteStreams
+		q.HandshakeTimeout = config.QUICCfg.HandshakeTimeout
+		q.MaxIdleTimeout = config.QUICCfg.MaxIdleTimeout
+		q.KeepAlivePeriod = config.QUICCfg.KeepAlivePeriod
+		q.RequireAddressValidation = config.QUICCfg.RequireAddressValidation
+	}
+
+	if config.QUICCfg.MaxBidiRemoteStreams == 0 {
+		q.MaxBidiRemoteStreams = config.MaxStreams
+	}
+
+	if config.QUICCfg.MaxIdleTimeout == 0 {
+		q.MaxIdleTimeout = config.MaxIdle
+	}
+
+	if config.QUICCfg.KeepAlivePeriod == 0 {
+		q.KeepAlivePeriod = config.KeepAlive
 	}
 }

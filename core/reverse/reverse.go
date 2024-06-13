@@ -23,7 +23,7 @@ import (
 )
 
 func DoReverseSrv(ctx context.Context, p *model.Proxy) (*model.RemoteProxy, error) {
-	rProxy := &model.RemoteProxy{Type: p.Type, Transfer: &model.NetAddr{Port: net.GetFreePort()}}
+	rProxy := &model.RemoteProxy{Transfer: &model.NetAddr{Port: net.GetFreePort()}}
 
 	endpoint, err := common.GetEndpoint(rProxy.Transfer)
 	if err != nil {
@@ -278,27 +278,25 @@ func DoReverseCli(ctx context.Context, dial *quic.Conn, p *model.Proxy) (*RpClie
 		rProxy.Transfer.Address = "127.0.0.1"
 	}
 
-	if rProxy.Type == p.Type {
-		serviceMap := make(map[string]*model.Service)
-		for _, service := range p.Services {
-			serviceMap[service.Tag] = service
-		}
+	serviceMap := make(map[string]*model.Service)
+	for _, service := range p.Services {
+		serviceMap[service.Tag] = service
+	}
 
-		for _, rService := range rProxy.RemoteServices {
-			if localService, found := serviceMap[rService.Tag]; found {
-				if rService.Listen.Listen == ip {
-					rService.Listen.Listen = "127.0.0.1"
-				}
-
-				pcs = append(pcs, &model.ProxyConfig{
-					Local: localService,
-					Remote: &model.RemoteService{
-						Tag:    rService.Tag,
-						Listen: rService.Listen,
-					},
-					Transfer: rProxy.Transfer,
-				})
+	for _, rService := range rProxy.RemoteServices {
+		if localService, found := serviceMap[rService.Tag]; found {
+			if rService.Listen.Listen == ip {
+				rService.Listen.Listen = "127.0.0.1"
 			}
+
+			pcs = append(pcs, &model.ProxyConfig{
+				Local: localService,
+				Remote: &model.RemoteService{
+					Tag:    rService.Tag,
+					Listen: rService.Listen,
+				},
+				Transfer: rProxy.Transfer,
+			})
 		}
 	}
 

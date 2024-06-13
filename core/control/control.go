@@ -81,16 +81,7 @@ func handleConn(ctx context.Context, conn *quic.Conn) {
 		return
 	}
 
-	var rProxy *model.RemoteProxy
-
-	switch proxy.Type {
-	case config.Reverse:
-		rProxy, err = reverse.DoReverseSrv(ctx, &proxy)
-		break
-	case config.Forward:
-		// TODO
-		break
-	}
+	rProxy, err := reverse.DoReverseSrv(ctx, &proxy)
 
 	if err != nil {
 		zlog.Error(err.Error())

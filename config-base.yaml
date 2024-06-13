@@ -3,11 +3,24 @@ log:
   fileLevel: error
   logFilePath: ""
 transfer:
+  tls:
+    crt: ""
+    key: ""
   maxBidiRemoteStreams: 100
-  maxIdleTimeout: -1
+  maxUniRemoteStreams: 100
+  maxStreamReadBufferSize: 1048576
+  maxStreamWriteBufferSize: 1048576
+  requireAddressValidation: false
+  handshakeTimeout: 10000000000
+  maxIdleTimeout: 1800000000000
   keepAlivePeriod: 30000000000
 role:
+  - server
   - client
+server:
+  listen:
+    address: 127.0.0.1
+    port: 12306
 client:
   conn:
     address: 127.0.0.1

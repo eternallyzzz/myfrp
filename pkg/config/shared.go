@@ -2,6 +2,7 @@ package config
 
 import (
 	"context"
+	"endpoint/pkg/model"
 	"time"
 )
 
@@ -12,4 +13,5 @@ var (
 	KeepAlive         = time.Second * 20
 	ContentType byte  = 0
 	MsgType     byte  = 1
+	QUICCfg     *model.Transfer
 )

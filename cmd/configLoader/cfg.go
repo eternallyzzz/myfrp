@@ -19,9 +19,7 @@ func Init(path string) (*model.Config, error) {
 		return nil, err
 	} else {
 		if c.Quic != nil {
-			config.MaxStreams = c.Quic.MaxIncomeStreams
-			config.MaxIdle = time.Duration(c.Quic.MaxIdle) * time.Second
-			config.KeepAlive = time.Duration(c.Quic.Keepalive) * time.Second
+			config.QUICCfg = c.Quic
 		}
 
 		return c, zlog.Init(c.Log)

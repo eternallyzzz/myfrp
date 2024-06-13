@@ -2,14 +2,15 @@ package model
 
 import (
 	"fmt"
+	"time"
 )
 
 type Config struct {
-	Log    *Log     `json:"log"`
-	Quic   *QUIC    `json:"quic"`
-	Role   []string `json:"role"`
-	Server *Server  `json:"server"`
-	Client *Client  `json:"client"`
+	Log    *Log      `json:"log"`
+	Quic   *Transfer `json:"transfer"`
+	Role   []string  `json:"role"`
+	Server *Server   `json:"server"`
+	Client *Client   `json:"client"`
 }
 
 type Client struct {
@@ -27,14 +28,29 @@ type Log struct {
 	LogFilePath  string `json:"logFilePath"`
 }
 
-type QUIC struct {
-	MaxIncomeStreams int64 `json:"maxIncomeStreams"`
-	MaxIdle          int64 `json:"maxIdle"`
-	Keepalive        int   `json:"keepalive"`
+type Transfer struct {
+	TLS *Tls `json:"tls"`
+	QUICCfg
+}
+
+type QUICCfg struct {
+	MaxBidiRemoteStreams     int64         `json:"maxBidiRemoteStreams"`
+	MaxUniRemoteStreams      int64         `json:"maxUniRemoteStreams"`
+	MaxStreamReadBufferSize  int64         `json:"maxStreamReadBufferSize"`
+	MaxStreamWriteBufferSize int64         `json:"maxStreamWriteBufferSize"`
+	MaxConnReadBufferSize    int64         `json:"maxConnReadBufferSize"`
+	RequireAddressValidation bool          `json:"requireAddressValidation"`
+	HandshakeTimeout         time.Duration `json:"handshakeTimeout"`
+	MaxIdleTimeout           time.Duration `json:"maxIdleTimeout"`
+	KeepAlivePeriod          time.Duration `json:"keepAlivePeriod"`
+}
+
+type Tls struct {
+	Crt string `json:"crt"`
+	Key string `json:"key"`
 }
 
 type Proxy struct {
-	Type     string     `json:"type"`
 	Services []*Service `json:"services"`
 }
 
@@ -59,7 +75,6 @@ func (s *Service) String() string {
 }
 
 type RemoteProxy struct {
-	Type           string           `json:"type"`
 	RemoteServices []*RemoteService `json:"remoteServices"`
 	Transfer       *NetAddr         `json:"transfer"`
 }

@@ -25,7 +25,6 @@ var (
 		"fatal": zap.FatalLevel,
 	}
 	workDir, _ = os.Getwd()
-	logPath    = workDir + "/resource/log"
 )
 
 func Init(c *model.Log) error {
@@ -43,7 +42,7 @@ func Init(c *model.Log) error {
 		fileEncoderConfig.EncodeCaller = nil
 		fileEncoder := zapcore.NewConsoleEncoder(fileEncoderConfig)
 
-		file, err := os.OpenFile(fmt.Sprintf("%s/error_%s.log", logPath, time.Now().Format(time.DateOnly)), os.O_CREATE|os.O_APPEND|os.O_RDWR, 0777)
+		file, err := os.OpenFile(fmt.Sprintf("%s/error_%s.log", workDir, time.Now().Format(time.DateOnly)), os.O_CREATE|os.O_APPEND|os.O_RDWR, 0777)
 		if err != nil {
 			log.Println(err)
 			return

@@ -2,10 +2,10 @@ log:
   consoleLevel: debug
   fileLevel: error
   logFilePath: ""
-quic:
-  maxIdle: -1
-  maxIncomeStreams: 100
-  keepalive: 20
+transfer:
+  maxBidiRemoteStreams: 100
+  maxIdleTimeout: -1
+  keepAlivePeriod: 30000000000
 role:
   - server
 server:

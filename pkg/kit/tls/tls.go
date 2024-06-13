@@ -23,6 +23,16 @@ func GetTLSConfig(prefix int, host string) *tls.Config {
 	return nil
 }
 
+func GetTLSConfigWithCustom(prefix int, host string, crt string, key string) *tls.Config {
+	switch prefix {
+	case config.ServerTLS:
+		return newServerTLSConfig(crt, key, "")
+	case config.ClientTLS:
+		return newClientTLSConfig(crt, key, "", host)
+	}
+	return nil
+}
+
 func newCertificate() tls.Certificate {
 	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
