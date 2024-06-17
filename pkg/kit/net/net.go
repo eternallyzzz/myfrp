@@ -62,10 +62,10 @@ func GetFreePort() int {
 	}
 }
 
-func CheckPortAvailability(port int) (flag bool) {
+func CheckPortAvailability(port int) bool {
 	listen, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
-		return !flag
+		return true
 	}
 	defer func() {
 		if listen != nil {
@@ -76,7 +76,7 @@ func CheckPortAvailability(port int) (flag bool) {
 	udpAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf(":%d", port))
 	listenUDP, err := net.ListenUDP("udp", udpAddr)
 	if err != nil {
-		return !flag
+		return true
 	}
 	defer func() {
 		if listenUDP != nil {
@@ -84,7 +84,7 @@ func CheckPortAvailability(port int) (flag bool) {
 		}
 	}()
 
-	return flag
+	return false
 }
 
 func GetTcpListener() (net.Listener, int, error) {
