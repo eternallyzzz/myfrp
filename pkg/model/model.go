@@ -31,7 +31,7 @@ type Log struct {
 
 type Transfer struct {
 	TLS *Tls `json:"tls"`
-	QUICCfg
+	*QUICCfg
 }
 
 type QUICCfg struct {

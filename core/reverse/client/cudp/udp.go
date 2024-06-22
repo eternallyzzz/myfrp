@@ -29,7 +29,7 @@ type Server struct {
 }
 
 func (s *Server) Run() error {
-	zlog.Info(fmt.Sprintf("local service [%s]%s ——> remote Connection Addr: [%s]%s", s.LocalProxy.Protocol,
+	zlog.Warn(fmt.Sprintf("local service [%s]%s ——> remote Connection Addr: [%s]%s", s.LocalProxy.Protocol,
 		s.LocalProxy.String(), s.RemoteProxy.Protocol, s.RemoteProxy.String()))
 
 	dial, err := common.PreMsg(s.Ctx, s.Endpoint, s.Transfer, s.RemoteProxy.Tag, s.RemoteProxy.Protocol)

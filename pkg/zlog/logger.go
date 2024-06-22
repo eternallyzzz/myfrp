@@ -43,7 +43,7 @@ func Init(c *model.Log) error {
 		fileEncoder := zapcore.NewConsoleEncoder(fileEncoderConfig)
 
 		logPath := fmt.Sprintf("%s/error_%s.log", workDir, time.Now().Format(time.DateOnly))
-		if c.LogFilePath != "" {
+		if c != nil && c.LogFilePath != "" {
 			logPath = fmt.Sprintf("%s/error_%s.log", c.LogFilePath, time.Now().Format(time.DateOnly))
 		}
 
