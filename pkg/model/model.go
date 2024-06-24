@@ -6,11 +6,21 @@ import (
 )
 
 type Config struct {
-	Log    *Log      `json:"log"`
-	Quic   *Transfer `json:"transfer"`
-	Role   []string  `json:"role"`
-	Server *Server   `json:"server"`
-	Client *Client   `json:"client"`
+	Log      *Log      `json:"log"`
+	Transfer *Transfer `json:"transfer"`
+	Endpoint *Endpoint `json:"endpoint"`
+	Proxy    *Proxy    `json:"proxy"`
+}
+
+type Proxy struct {
+	Remote []*RemoteInfo `json:"remote"`
+	Local  []*Service    `json:"local"`
+}
+
+type RemoteInfo struct {
+	Tag      string `json:"tag"`
+	NodePort uint16 `json:"nodePort"`
+	*NetAddr
 }
 
 type Client struct {
@@ -18,9 +28,9 @@ type Client struct {
 	Proxy *Proxy   `json:"proxy"`
 }
 
-type Server struct {
-	RandomPort string   `json:"randomPort"`
-	Listen     *NetAddr `json:"listen"`
+type Endpoint struct {
+	RandPort string `json:"randPort"`
+	*NetAddr
 }
 
 type Log struct {
@@ -51,13 +61,9 @@ type Tls struct {
 	Key string `json:"key"`
 }
 
-type Proxy struct {
-	Services []*Service `json:"services"`
-}
-
 type NetAddr struct {
 	Address string `json:"address"`
-	Port    int    `json:"port"`
+	Port    uint16 `json:"port"`
 }
 
 func (n *NetAddr) String() string {
@@ -65,14 +71,16 @@ func (n *NetAddr) String() string {
 }
 
 type Service struct {
-	Tag      string `json:"tag"`
-	Listen   string `json:"listen"`
-	Port     int    `json:"port"`
-	Protocol string `json:"protocol"`
+	Tag        string `json:"tag"`
+	Address    string `json:"listen"`
+	Port       uint16 `json:"port"`
+	Protocol   string `json:"protocol"`
+	RemoteTag  string `json:"remoteTag"`
+	RemotePort uint16 `json:"remotePort"`
 }
 
 func (s *Service) String() string {
-	return fmt.Sprintf("%s:%d", s.Listen, s.Port)
+	return fmt.Sprintf("%s:%d", s.Address, s.Port)
 }
 
 type RemoteProxy struct {

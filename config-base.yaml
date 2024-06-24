@@ -1,39 +1,59 @@
+# 日志配置
 log:
+  # 终端日志级别
   consoleLevel: debug
+  # 文件日志级别
   fileLevel: error
+  # 日志文件存储路径
   logFilePath: ""
+# quic传输配置
 transfer:
   tls:
     crt: ""
     key: ""
+  # 默认100
   maxBidiRemoteStreams: 100
+  # 默认100
   maxUniRemoteStreams: 100
+  # 默认1MiB
   maxStreamReadBufferSize: 1048576
+  # 默认1MiB
   maxStreamWriteBufferSize: 1048576
   requireAddressValidation: false
+  # 默认10s
   handshakeTimeout: 10000000000
+  # 默认30分钟
   maxIdleTimeout: 1800000000000
+  # 默认30s
   keepAlivePeriod: 30000000000
-role:
-  - server
-  - client
-server:
-  randomPort: 10000-20000
-  listen:
-    address: 127.0.0.1
-    port: 12306
-client:
-  conn:
-    address: 127.0.0.1
-    port: 12306
-  proxy:
-    services:
-      - address: 127.0.0.1
-        port: 8211
-        protocol: udp
-      - address: 127.0.0.1
-        port: 8080
-        protocol: tcp
-      - address: 127.0.0.1
-        port: 10003
-        protocol: udp
+# 服务端配置
+endpoint:
+  # 随机服务监听端口范围， 默认10000-60000
+  randPort: 10000-20000
+  address: 127.0.0.1
+  port: 12306
+
+proxy:
+  # 服务端的协议地址端口
+  remote:
+    - address: 127.0.0.1
+      port: 12306
+      nodePort: 10086
+      tag: p1
+  # 代理
+  local:
+    - address: 127.0.0.1
+      port: 8211
+      protocol: udp
+      remoteTag: p1
+      remotePort: 28211
+    - address: 127.0.0.1
+      port: 8080
+      protocol: tcp
+      remoteTag: p1
+      remotePort: 28080
+    - address: 127.0.0.1
+      port: 1003
+      protocol: udp
+      remoteTag: p1
+      remotePort: 21003

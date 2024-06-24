@@ -10,20 +10,26 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"runtime"
+	"runtime/debug"
 	"syscall"
 )
 
-var (
-	cfgFilePath string
+const (
+	cfgFilePath = "config"
 )
 
 func init() {
-	rootCmd.Flags().StringVarP(&cfgFilePath, "config", "c", "", "path for config file")
+	rootCmd.Flags().StringP(cfgFilePath, "c", "config.yaml", "config file path")
 }
 
 var rootCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return startEndpoint()
+		cPath, err := cmd.Flags().GetString(cfgFilePath)
+		if err != nil {
+			return err
+		}
+		return startEndpoint(cPath)
 	},
 }
 
@@ -34,8 +40,8 @@ func Run() {
 	}
 }
 
-func startEndpoint() error {
-	c, err := configLoader.Init(cfgFilePath)
+func startEndpoint(cPath string) error {
+	c, err := configLoader.Init(cPath)
 	if err != nil {
 		return err
 	}
@@ -49,7 +55,15 @@ func startEndpoint() error {
 	if err = instance.Start(); err != nil {
 		return errors.New("Failed to start: " + err.Error())
 	}
-	defer instance.Close()
+	defer func(instance *core.Instance) {
+		err := instance.Close()
+		if err != nil {
+			return
+		}
+	}(instance)
+
+	runtime.GC()
+	debug.FreeOSMemory()
 
 	{
 		osSignals := make(chan os.Signal, 1)

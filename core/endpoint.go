@@ -125,3 +125,8 @@ func (i *Instance) Close() error {
 
 	return nil
 }
+
+func resolveConfig(cfg *model.Config) []any {
+	cfgs := make([]any, 0)
+
+}
