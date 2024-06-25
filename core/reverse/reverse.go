@@ -16,6 +16,7 @@ import (
 	"endpoint/pkg/zlog"
 	"golang.org/x/net/quic"
 	"sync"
+	"time"
 )
 
 func DoReverseSrv(ctx context.Context, services []*model.Service) error {
@@ -36,7 +37,7 @@ func DoReverseSrv(ctx context.Context, services []*model.Service) error {
 		return err
 	}
 
-	server := nodeServer{Ctx: ctx, Endpoint: endpoint, Services: data}
+	server := nodeServer{Ctx: ctx, Endpoint: endpoint, Services: data, Conns: &sync.Map{}}
 
 	instance := config.Ctx.Value("instance").(*core.Instance)
 	err = instance.AddTask(&server)
@@ -167,6 +168,7 @@ type nodeServer struct {
 	Ctx      context.Context
 	Endpoint *quic.Endpoint
 	Services map[string]*model.Service
+	Conns    *sync.Map
 }
 
 func (n *nodeServer) Run() error {
@@ -179,6 +181,20 @@ func (n *nodeServer) Run() error {
 			}
 
 			go n.handleData(accept)
+		}
+	}()
+
+	go func() {
+		for {
+			time.Sleep(time.Second * 30)
+			var count int
+			n.Conns.Range(func(key, value any) bool {
+				count++
+				return true
+			})
+			if count == 0 {
+				n.Close()
+			}
 		}
 	}()
 
@@ -230,12 +246,14 @@ func (n *nodeServer) handleData(conn *quic.Conn) {
 		ctx, cancelFunc := context.WithCancel(n.Ctx)
 
 		server := stcp.Server{
+			ID:       hk.ID,
 			Ctx:      ctx,
 			Cancel:   cancelFunc,
 			Conn:     conn,
 			Listener: listener,
 			EventCh:  make(chan string, 10),
 			Lock:     &sync.Mutex{},
+			Conns:    n.Conns,
 		}
 		err = instance.AddTask(&server)
 		if err != nil {
@@ -252,12 +270,14 @@ func (n *nodeServer) handleData(conn *quic.Conn) {
 		ctx, cancelFunc := context.WithCancel(n.Ctx)
 
 		server := sudp.Server{
+			ID:       hk.ID,
 			Ctx:      ctx,
 			Cancel:   cancelFunc,
 			Listener: listener,
 			Conn:     conn,
 			EventCh:  make(chan string, 10),
 			Lock:     &sync.Mutex{},
+			Conns:    n.Conns,
 		}
 		err = instance.AddTask(&server)
 		if err != nil {
@@ -266,4 +286,6 @@ func (n *nodeServer) handleData(conn *quic.Conn) {
 		}
 		break
 	}
+
+	n.Conns.Store(hk.ID, conn)
 }

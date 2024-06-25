@@ -15,12 +15,14 @@ import (
 )
 
 type Server struct {
+	ID          string
 	Ctx         context.Context
 	Cancel      context.CancelFunc
 	Conn        *quic.Conn
 	Listener    *net.UDPConn
 	EventCh     chan string
 	Running     bool
+	Conns       *sync.Map
 	UDPConnMaps map[string]*WorkConnState
 	Lock        *sync.Mutex
 }
@@ -53,6 +55,8 @@ func (s *Server) Run() error {
 func (s *Server) Close() error {
 	s.Lock.Lock()
 	defer s.Lock.Unlock()
+
+	s.Conns.Delete(s.ID)
 
 	if !s.Running {
 		return nil
