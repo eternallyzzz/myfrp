@@ -30,7 +30,6 @@ transfer:
 endpoint:
   # 随机服务监听端口范围， 默认10000-60000
   randPort: 10000-20000
-  address: 127.0.0.1
   port: 12306
 
 proxy:
@@ -38,7 +37,6 @@ proxy:
   remote:
     - address: 127.0.0.1
       port: 12306
-      nodePort: 10086
       tag: p1
   # 代理
   local:

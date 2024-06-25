@@ -14,21 +14,20 @@ import (
 )
 
 type Server struct {
-	Ctx         context.Context
-	Cancel      context.CancelFunc
-	Endpoint    *quic.Endpoint
-	Conn        *quic.Conn
-	LocalProxy  *model.Service
-	RemoteProxy *model.Service
-	Transfer    *model.NetAddr
-	Running     bool
+	Ctx            context.Context
+	Cancel         context.CancelFunc
+	Endpoint       *quic.Endpoint
+	Conn           *quic.Conn
+	LocalSrvConfig *model.Service
+	RemoteHost     string
+	Running        bool
 }
 
 func (s *Server) Run() error {
-	zlog.Warn(fmt.Sprintf("local service [%s]%s ——> remote Connection Addr: [%s]%s", s.LocalProxy.Protocol,
-		s.LocalProxy.String(), s.RemoteProxy.Protocol, s.RemoteProxy.String()))
+	zlog.Warn(fmt.Sprintf("local service [%s]%s ——> remote Connection Addr: [%s]%s", s.LocalSrvConfig.Protocol,
+		s.LocalSrvConfig.String(), s.LocalSrvConfig.Protocol, fmt.Sprintf("%s:%d", s.RemoteHost, s.LocalSrvConfig.RemotePort)))
 
-	dial, err := common.PreMsg(s.Ctx, s.Endpoint, s.Transfer, s.RemoteProxy.Tag, s.RemoteProxy.Protocol)
+	dial, err := common.PreMsg(s.Ctx, s.Endpoint, &model.NetAddr{Address: s.RemoteHost, Port: s.LocalSrvConfig.NodePort}, s.LocalSrvConfig.ID, s.LocalSrvConfig.Protocol)
 	if err != nil {
 		return err
 	}
@@ -79,7 +78,7 @@ func (s *Server) listenQUIC() {
 			go common.HandleSrvEvent(stream)
 			break
 		case config.ContentType:
-			dial, err := net.Dial(s.LocalProxy.Protocol, s.LocalProxy.String())
+			dial, err := net.Dial(s.LocalSrvConfig.Protocol, s.LocalSrvConfig.String())
 			if err != nil {
 				_ = stream.Close()
 				zlog.Error(err.Error())

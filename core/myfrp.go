@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"endpoint/pkg/common"
-	"endpoint/pkg/config"
 	"endpoint/pkg/inf"
 	"endpoint/pkg/model"
 	"endpoint/pkg/zlog"
@@ -12,7 +11,7 @@ import (
 )
 
 func New(iConfig *model.Config) (*Instance, error) {
-	if iConfig.Server == nil && iConfig.Client == nil {
+	if iConfig.Endpoint == nil && iConfig.Proxy == nil {
 		return nil, errors.New("invalid config")
 	}
 
@@ -28,31 +27,18 @@ func New(iConfig *model.Config) (*Instance, error) {
 }
 
 func initInstance(ins *Instance, iConfig *model.Config) error {
-	for _, role := range iConfig.Role {
-		switch role {
-		case config.RoleSrv:
-			o, err := common.GetServerInstance(ins.Ctx, iConfig.Server)
-			if err != nil {
-				return err
-			}
+	cfgs := resolveConfig(iConfig)
 
-			if future, ok := o.(inf.Future); ok {
-				if err := ins.AddTask(future); err != nil {
-					return err
-				}
-			}
-			break
-		case config.RoleCli:
-			o, err := common.GetServerInstance(ins.Ctx, iConfig.Client)
-			if err != nil {
+	for _, cfg := range cfgs {
+		o, err := common.GetServerInstance(ins.Ctx, cfg)
+		if err != nil {
+			return err
+		}
+
+		if future, ok := o.(inf.Future); ok {
+			if err := ins.AddTask(future); err != nil {
 				return err
 			}
-			if future, ok := o.(inf.Future); ok {
-				if err := ins.AddTask(future); err != nil {
-					return err
-				}
-			}
-			break
 		}
 	}
 	return nil
@@ -129,4 +115,11 @@ func (i *Instance) Close() error {
 func resolveConfig(cfg *model.Config) []any {
 	cfgs := make([]any, 0)
 
+	if cfg.Endpoint != nil {
+		cfgs = append(cfgs, cfg.Endpoint)
+	}
+	if cfg.Proxy != nil {
+		cfgs = append(cfgs, cfg.Proxy)
+	}
+	return cfgs
 }

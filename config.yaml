@@ -6,10 +6,6 @@ transfer:
   maxBidiRemoteStreams: 100
   maxIdleTimeout: -1
   keepAlivePeriod: 30000000000
-role:
-  - server
-server:
-  randomPort: 10000-20000
-  listen:
-    address: 127.0.0.1
-    port: 12306
+endpoint:
+  randPort: 10000-20000
+  port: 12306

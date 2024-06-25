@@ -6,20 +6,14 @@ transfer:
   maxBidiRemoteStreams: 100
   maxIdleTimeout: -1
   keepAlivePeriod: 30000000000
-role:
-  - client
-client:
-  conn:
-    address: 127.0.0.1
-    port: 12306
-  proxy:
-    services:
-      - address: 127.0.0.1
-        port: 8211
-        protocol: udp
-      - address: 127.0.0.1
-        port: 8080
-        protocol: tcp
-      - address: 127.0.0.1
-        port: 10003
-        protocol: udp
+proxy:
+  remote:
+    - address: 127.0.0.1
+      port: 12306
+      tag: p1
+  local:
+    - address: 127.0.0.1
+      port: 8211
+      protocol: udp
+      remoteTag: p1
+      remotePort: 28211

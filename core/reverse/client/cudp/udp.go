@@ -17,29 +17,28 @@ import (
 )
 
 type Server struct {
-	Ctx         context.Context
-	Cancel      context.CancelFunc
-	Endpoint    *quic.Endpoint
-	Conn        *quic.Conn
-	LocalProxy  *model.Service
-	RemoteProxy *model.Service
-	Transfer    *model.NetAddr
-	Running     bool
-	UDPConnMaps *sync.Map
+	Ctx            context.Context
+	Cancel         context.CancelFunc
+	Endpoint       *quic.Endpoint
+	Conn           *quic.Conn
+	LocalSrvConfig *model.Service
+	RemoteHost     string
+	Running        bool
+	UDPConnMaps    *sync.Map
 }
 
 func (s *Server) Run() error {
-	zlog.Warn(fmt.Sprintf("local service [%s]%s ——> remote Connection Addr: [%s]%s", s.LocalProxy.Protocol,
-		s.LocalProxy.String(), s.RemoteProxy.Protocol, s.RemoteProxy.String()))
+	zlog.Warn(fmt.Sprintf("local service [%s]%s ——> remote Connection Addr: [%s]%s", s.LocalSrvConfig.Protocol,
+		s.LocalSrvConfig.String(), s.LocalSrvConfig.Protocol, fmt.Sprintf("%s:%d", s.RemoteHost, s.LocalSrvConfig.RemotePort)))
 
-	dial, err := common.PreMsg(s.Ctx, s.Endpoint, s.Transfer, s.RemoteProxy.Tag, s.RemoteProxy.Protocol)
+	dial, err := common.PreMsg(s.Ctx, s.Endpoint, &model.NetAddr{Address: s.RemoteHost, Port: s.LocalSrvConfig.NodePort}, s.LocalSrvConfig.ID, s.LocalSrvConfig.Protocol)
 	if err != nil {
 		return err
 	}
 	s.Conn = dial
 
 	go s.listenQUIC()
-	//go s.checkInactiveStreams()
+	go s.checkInactiveStreams()
 
 	return nil
 }
@@ -87,7 +86,7 @@ func (s *Server) listenQUIC() {
 		case config.ContentType:
 			var wg sync.WaitGroup
 
-			conn, err := udpConnect(s.LocalProxy.String())
+			conn, err := udpConnect(s.LocalSrvConfig.String())
 			if err != nil {
 				_ = stream.Close()
 				zlog.Error(err.Error())
@@ -233,7 +232,7 @@ func closeInactiveStreams(users *sync.Map, checkActive bool) {
 	users.Range(func(key, value any) bool {
 		info := value.(*WorkConnState)
 		if checkActive {
-			if time.Now().Sub(info.Ts).Seconds() > config.UDPConnTimeOut {
+			if time.Now().Sub(info.Ts).Seconds() > config.UDPTimeOutCli {
 				f(info, key)
 			}
 		} else {

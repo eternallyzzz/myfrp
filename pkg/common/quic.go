@@ -59,7 +59,7 @@ func HandleSrvEvent(stream *quic.Stream) {
 	}
 }
 
-func PreMsg(ctx context.Context, endpoint *quic.Endpoint, addr *model.NetAddr, tag, network string) (*quic.Conn, error) {
+func PreMsg(ctx context.Context, endpoint *quic.Endpoint, addr *model.NetAddr, id, network string) (*quic.Conn, error) {
 	pointDial, err := GetEndPointDial(ctx, endpoint, addr)
 	if err != nil {
 		return nil, err
@@ -72,7 +72,7 @@ func PreMsg(ctx context.Context, endpoint *quic.Endpoint, addr *model.NetAddr, t
 	defer newStream.Close()
 
 	h := model.Handshake{
-		Tag:     tag,
+		ID:      id,
 		Network: network,
 	}
 	m, err := json.Marshal(&h)

@@ -38,7 +38,7 @@ func GetExternalIP() (string, error) {
 
 func GetFreePort() int {
 	one.Do(func() {
-		value := viper.GetString("server.randomPort")
+		value := viper.GetString("endpoint.randPort")
 		if value != "" {
 			split := strings.Split(value, "-")
 			low, err := strconv.Atoi(split[0])
@@ -67,51 +67,41 @@ func CheckPortAvailability(port int) bool {
 	if err != nil {
 		return true
 	}
-	defer func() {
-		if listen != nil {
-			zlog.Unwrap(listen.Close())
-		}
-	}()
+	defer listen.Close()
 
 	udpAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf(":%d", port))
 	listenUDP, err := net.ListenUDP("udp", udpAddr)
 	if err != nil {
 		return true
 	}
-	defer func() {
-		if listenUDP != nil {
-			zlog.Unwrap(listenUDP.Close())
-		}
-	}()
+	defer listenUDP.Close()
 
 	return false
 }
 
-func GetTcpListener() (net.Listener, int, error) {
-	port := GetFreePort()
+func GetTcpListener(port uint16) (net.Listener, error) {
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
 	zlog.Info(fmt.Sprintf("listening TCP on [%s]%s", l.Addr().Network(), l.Addr().String()))
 
-	return l, port, nil
+	return l, nil
 }
 
-func GetUdpListener() (*net.UDPConn, int, error) {
-	port := GetFreePort()
+func GetUdpListener(port uint16) (*net.UDPConn, error) {
 	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf(":%d", port))
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
 	l, err := net.ListenUDP("udp", addr)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
-	zlog.Info(fmt.Sprintf("listening UDP in [%s]%s", l.LocalAddr().Network(), l.LocalAddr().String()))
+	zlog.Info(fmt.Sprintf("listening UDP on [%s]%s", l.LocalAddr().Network(), l.LocalAddr().String()))
 
-	return l, port, nil
+	return l, nil
 }

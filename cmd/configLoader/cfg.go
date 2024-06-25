@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"github.com/spf13/viper"
 	"os"
-	"strings"
 	"time"
 )
 
@@ -18,8 +17,8 @@ func Init(path string) (*model.Config, error) {
 	if c, err := loadConfig(path); err != nil {
 		return nil, err
 	} else {
-		if c.Quic != nil {
-			config.QUICCfg = c.Quic
+		if c.Transfer != nil {
+			config.QUICCfg = c.Transfer
 		}
 
 		return c, zlog.Init(c.Log)
@@ -54,12 +53,6 @@ func loadConfig(path string) (*model.Config, error) {
 	err = json.Unmarshal(m, &cfg)
 	if err != nil {
 		return nil, err
-	}
-
-	if &cfg != nil && cfg.Client != nil && cfg.Client.Proxy != nil && cfg.Client.Proxy.Services != nil {
-		for _, service := range cfg.Client.Proxy.Services {
-			service.Protocol = strings.ToLower(service.Protocol)
-		}
 	}
 
 	return &cfg, nil

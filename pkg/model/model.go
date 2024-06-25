@@ -18,8 +18,7 @@ type Proxy struct {
 }
 
 type RemoteInfo struct {
-	Tag      string `json:"tag"`
-	NodePort uint16 `json:"nodePort"`
+	Tag string `json:"tag"`
 	*NetAddr
 }
 
@@ -71,35 +70,20 @@ func (n *NetAddr) String() string {
 }
 
 type Service struct {
-	Tag        string `json:"tag"`
-	Address    string `json:"listen"`
+	ID         string `json:"id"`
+	Address    string `json:"address"`
 	Port       uint16 `json:"port"`
 	Protocol   string `json:"protocol"`
 	RemoteTag  string `json:"remoteTag"`
 	RemotePort uint16 `json:"remotePort"`
+	NodePort   uint16 `json:"nodePort"`
 }
 
 func (s *Service) String() string {
 	return fmt.Sprintf("%s:%d", s.Address, s.Port)
 }
 
-type RemoteProxy struct {
-	RemoteServices []*RemoteService `json:"remoteServices"`
-	Transfer       *NetAddr         `json:"transfer"`
-}
-
-type RemoteService struct {
-	Tag    string   `json:"tag"`
-	Listen *Service `json:"listen"`
-}
-
-type ProxyConfig struct {
-	Local    *Service
-	Remote   *RemoteService
-	Transfer *NetAddr `json:"transfer"`
-}
-
 type Handshake struct {
-	Tag     string
-	Network string
+	ID      string `json:"id"`
+	Network string `json:"network"`
 }
