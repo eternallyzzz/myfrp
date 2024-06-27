@@ -19,6 +19,9 @@ transfer:
   maxStreamReadBufferSize: 1048576
   # 默认1MiB
   maxStreamWriteBufferSize: 1048576
+  # 默认1MiB
+  maxConnReadBufferSize: 1048576
+  # 是否验证连接来源地址
   requireAddressValidation: false
   # 默认10s
   handshakeTimeout: 10000000000
