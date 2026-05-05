@@ -3,6 +3,12 @@ log:
   fileLevel: error
   logFilePath: ""
 transfer:
+  # 默认1MiB
+  maxStreamReadBufferSize: 10485760
+  # 默认1MiB
+  maxStreamWriteBufferSize: 10485760
+  # 默认1MiB
+  maxConnReadBufferSize: 10485760
   maxBidiRemoteStreams: 100
   maxIdleTimeout: -1
   keepAlivePeriod: 30000000000

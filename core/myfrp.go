@@ -45,7 +45,7 @@ func initInstance(ins *Instance, iConfig *model.Config) error {
 }
 
 type Instance struct {
-	Lock    sync.Mutex
+	Lock    sync.RWMutex // 使用读写锁，支持并发读取状态
 	Ctx     context.Context
 	Cancel  context.CancelFunc
 	Futures []inf.Future

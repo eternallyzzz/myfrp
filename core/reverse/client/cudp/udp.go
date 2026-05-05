@@ -10,11 +10,18 @@ import (
 	"endpoint/pkg/zlog"
 	"errors"
 	"fmt"
-	"golang.org/x/net/quic"
 	"net"
 	"sync"
 	"time"
+
+	"golang.org/x/net/quic"
 )
+
+var udpReadBufferPool = sync.Pool{
+	New: func() interface{} {
+		return make([]byte, 1500)
+	},
+}
 
 type Server struct {
 	Ctx            context.Context
@@ -100,8 +107,8 @@ func (s *Server) listenQUIC() {
 				Stream:  stream,
 				UDPConn: conn,
 				Wait:    &wg,
-				ReadCh:  make(chan []byte, 2048),
-				WriteCh: make(chan []byte, 2048),
+				ReadCh:  make(chan []byte, 256),
+				WriteCh: make(chan []byte, 256),
 			}
 
 			wg.Add(4)
@@ -164,7 +171,9 @@ func (w *WorkConnState) InUDP() {
 	defer w.Wait.Done()
 	defer close(w.WriteCh)
 
-	buff := make([]byte, 1500)
+	buff := udpReadBufferPool.Get().([]byte)
+	defer udpReadBufferPool.Put(buff)
+
 	for {
 		n, _, err := w.UDPConn.ReadFromUDP(buff)
 		if err != nil {
@@ -210,7 +219,7 @@ func udpConnect(addr string) (conn *net.UDPConn, err error) {
 }
 
 func (s *Server) checkInactiveStreams() {
-	ticker := time.NewTicker(time.Millisecond * 150)
+	ticker := time.NewTicker(time.Second)
 	for {
 		select {
 		case <-s.Ctx.Done():

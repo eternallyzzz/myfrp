@@ -4,7 +4,15 @@ import (
 	"bytes"
 	"encoding/binary"
 	"io"
+	"slices"
+	"sync"
 )
+
+var encodeBufferPool = sync.Pool{
+	New: func() interface{} {
+		return bytes.NewBuffer(make([]byte, 0, 2048))
+	},
+}
 
 func Decode(r io.Reader) ([]byte, error) {
 	var l int64
@@ -21,8 +29,13 @@ func Decode(r io.Reader) ([]byte, error) {
 }
 
 func Encode(data []byte) []byte {
-	buffer := bytes.NewBuffer(nil)
-	binary.Write(buffer, binary.BigEndian, int64(len(data)))
-	buffer.Write(data)
-	return buffer.Bytes()
+	buf := encodeBufferPool.Get().(*bytes.Buffer)
+	defer func() {
+		buf.Reset()
+		encodeBufferPool.Put(buf)
+	}()
+	binary.Write(buf, binary.BigEndian, int64(len(data)))
+	buf.Write(data)
+	result := slices.Clone(buf.Bytes())
+	return result
 }

@@ -14,9 +14,10 @@ import (
 	"endpoint/pkg/kit/net"
 	"endpoint/pkg/model"
 	"endpoint/pkg/zlog"
-	"golang.org/x/net/quic"
 	"sync"
 	"time"
+
+	"golang.org/x/net/quic"
 )
 
 func DoReverseSrv(ctx context.Context, services []*model.Service) error {
@@ -252,7 +253,6 @@ func (n *nodeServer) handleData(conn *quic.Conn) {
 			Conn:     conn,
 			Listener: listener,
 			EventCh:  make(chan string, 10),
-			Lock:     &sync.Mutex{},
 			Conns:    n.Conns,
 		}
 		err = instance.AddTask(&server)
@@ -276,7 +276,6 @@ func (n *nodeServer) handleData(conn *quic.Conn) {
 			Listener: listener,
 			Conn:     conn,
 			EventCh:  make(chan string, 10),
-			Lock:     &sync.Mutex{},
 			Conns:    n.Conns,
 		}
 		err = instance.AddTask(&server)

@@ -8,10 +8,11 @@ import (
 	"endpoint/pkg/zlog"
 	"errors"
 	"fmt"
-	"golang.org/x/net/quic"
 	"net"
 	"sync"
 	"time"
+
+	"golang.org/x/net/quic"
 )
 
 type Server struct {
@@ -23,12 +24,16 @@ type Server struct {
 	EventCh  chan string
 	Running  bool
 	Conns    *sync.Map
-	Lock     *sync.Mutex
+	Lock     sync.RWMutex // 使用读写锁替代互斥锁，读多写少场景性能更好
 }
 
 func (s *Server) Run() error {
 	s.Lock.Lock()
 	defer s.Lock.Unlock()
+
+	if s.Running {
+		return nil
+	}
 
 	stream, err := s.Conn.NewStream(s.Ctx)
 	if err != nil {
@@ -58,6 +63,8 @@ func (s *Server) Close() error {
 		return nil
 	}
 
+	s.Running = false
+
 	errs := make([]error, 2)
 
 	s.Cancel()
@@ -65,7 +72,6 @@ func (s *Server) Close() error {
 	errs[1] = s.Listener.Close()
 	close(s.EventCh)
 
-	s.Running = !s.Running
 	zlog.Info(fmt.Sprintf("TCP Listener: %s Closed", s.Listener.Addr().String()))
 
 	return errors.Join(errs...)
@@ -95,7 +101,7 @@ func (s *Server) listenTCP() {
 		}
 		stream.Flush()
 
-		p := &common.Pipe{Stream: stream}
+		p := common.NewPipe(stream)
 
 		s.EventCh <- fmt.Sprintf("%s connected", accept.RemoteAddr().String())
 

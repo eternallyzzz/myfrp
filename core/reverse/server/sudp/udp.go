@@ -8,11 +8,18 @@ import (
 	"endpoint/pkg/zlog"
 	"errors"
 	"fmt"
-	"golang.org/x/net/quic"
 	"net"
 	"sync"
 	"time"
+
+	"golang.org/x/net/quic"
 )
+
+var udpReadBufferPool = sync.Pool{
+	New: func() interface{} {
+		return make([]byte, 1500)
+	},
+}
 
 type Server struct {
 	ID          string
@@ -24,12 +31,16 @@ type Server struct {
 	Running     bool
 	Conns       *sync.Map
 	UDPConnMaps map[string]*WorkConnState
-	Lock        *sync.Mutex
+	Lock        sync.RWMutex // 使用读写锁，优化读多写少场景
 }
 
 func (s *Server) Run() error {
 	s.Lock.Lock()
 	defer s.Lock.Unlock()
+
+	if s.Running {
+		return nil
+	}
 
 	s.UDPConnMaps = make(map[string]*WorkConnState)
 
@@ -62,13 +73,14 @@ func (s *Server) Close() error {
 		return nil
 	}
 
+	s.Running = false
+
 	errs := make([]error, 2)
 
 	s.Cancel()
 	errs[0] = s.Conn.Close()
 	errs[1] = s.Listener.Close()
 
-	s.Running = !s.Running
 	zlog.Info(fmt.Sprintf("UDP Listener: %s Closed", s.Listener.LocalAddr().String()))
 
 	return errors.Join(errs...)
@@ -104,7 +116,8 @@ func (s *Server) listenUDP() {
 		}
 	}(s)
 
-	buff := make([]byte, 1500)
+	buff := udpReadBufferPool.Get().([]byte)
+	defer udpReadBufferPool.Put(buff)
 
 	for {
 		n, addr, err := s.Listener.ReadFromUDP(buff)
@@ -115,16 +128,16 @@ func (s *Server) listenUDP() {
 		data := make([]byte, n)
 		copy(data, buff[:n])
 
-		s.Lock.Lock()
+		s.Lock.RLock()
 		if v, ok := s.UDPConnMaps[addr.String()]; ok {
+			s.Lock.RUnlock()
 			select {
 			case v.ReadCh <- data:
 			default:
 			}
-			s.Lock.Unlock()
 			continue
 		}
-		s.Lock.Unlock()
+		s.Lock.RUnlock()
 
 		stream, err := s.Conn.NewStream(s.Ctx)
 		if err != nil {
@@ -142,8 +155,8 @@ func (s *Server) listenUDP() {
 			Addr:    addr,
 			UDPConn: s.Listener,
 			Stream:  stream,
-			ReadCh:  make(chan []byte, 2048),
-			WriteCh: make(chan []byte, 2048),
+			ReadCh:  make(chan []byte, 256),
+			WriteCh: make(chan []byte, 256),
 			Wait:    &wg,
 		}
 
@@ -231,7 +244,7 @@ func (w *WorkConnState) Close() {
 }
 
 func (s *Server) checkInactiveStreams() {
-	ticker := time.NewTicker(time.Millisecond * 150)
+	ticker := time.NewTicker(time.Second)
 
 	for {
 		select {

@@ -86,7 +86,7 @@ func (s *Server) listenQUIC() {
 				continue
 			}
 
-			p := &common.Pipe{Stream: stream}
+			p := common.NewPipe(stream)
 
 			go common.Copy(dial, p, nil, "")
 			break
